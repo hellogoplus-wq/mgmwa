@@ -133,13 +133,19 @@ async function detectChromiumPath() {
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
+  if (clients[id] && clients[id].status === "connected") {
+    console.log(`⚠️ ${id} sudah aktif, lewati inisialisasi`);
+    return;
+  }
+
   let chromiumPath;
   try {
     chromiumPath = await detectChromiumPath();
   } catch (err) {
     console.error(`❌ Tidak bisa menemukan Chrome untuk ${id}:`, err.message);
-    return; // stop kalau Chrome gagal
+    return;
   }
+
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
