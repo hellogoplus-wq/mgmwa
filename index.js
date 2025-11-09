@@ -66,16 +66,28 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧩 Detect Chromium Path (Hybrid Modern)
+// 🧩 Detect Chromium Path (Render-Compatible)
 // =============================
 async function detectChromiumPath() {
+  try {
+    // 1️⃣ Coba gunakan Chrome AWS Lambda (portable)
+    const chrome = require("chrome-aws-lambda");
+    const executablePath = await chrome.executablePath;
+    if (executablePath) {
+      console.log("🧭 Using Chrome AWS Lambda binary:", executablePath);
+      return executablePath;
+    }
+  } catch (err) {
+    console.warn("⚠️ Chrome AWS Lambda not available:", err.message);
+  }
+
+  // 2️⃣ Coba Chromium bawaan Render
   const candidates = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
     "/usr/bin/google-chrome-stable",
   ];
-
   for (const path of candidates) {
     if (path && fs.existsSync(path)) {
       console.log("🧭 Chromium found:", path);
@@ -83,19 +95,12 @@ async function detectChromiumPath() {
     }
   }
 
-  console.log("⚠️ Chromium not found, launching Puppeteer to detect internal binary...");
-
-  // ✅ fallback modern Puppeteer (tanpa createBrowserFetcher)
-  const browser = await puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-  const executablePath = puppeteer.executablePath();
-  await browser.close();
-
-  console.log("⬇️ Using Puppeteer internal Chromium:", executablePath);
-  return executablePath;
+  // 3️⃣ Terakhir: fallback internal Puppeteer
+  const chromiumPath = puppeteer.executablePath();
+  console.log("🧩 Fallback ke internal Puppeteer binary:", chromiumPath);
+  return chromiumPath;
 }
+
 
 // =============================
 // 📱 Create WhatsApp Client
