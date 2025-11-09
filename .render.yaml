@@ -5,13 +5,29 @@ services:
     plan: free
     buildCommand: npm install --legacy-peer-deps
     startCommand: npm start
+    autoDeploy: true
+
     envVars:
+      # ⚙️ Node.js Version
       - key: NODE_VERSION
         value: 18
+
+      # 🧩 Puppeteer Settings
       - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "false"
+        value: "false"    # biarkan Puppeteer download Chrome otomatis
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: ""         # dikosongkan agar auto detect bawaan Puppeteer
+
+      # 🌍 App Settings
       - key: PORT
         value: 10000
       - key: TZ
         value: Asia/Makassar
+
+      # 💓 KeepAlive Ping URL
+      - key: KEEPALIVE_URL
+        value: https://mgmwa.onrender.com
+
+    # 🔍 Health Check
     healthCheckPath: /
+    healthCheckTimeoutSeconds: 60
