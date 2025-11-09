@@ -1,7 +1,7 @@
 // =============================
-// 🚀 Moggumung WA Backend (Render Stable Final)
-// With Auto-Reconnect + Logout/Delete + Chrome Cache Fix
+// 🚀 Moggumung WA Backend v9 (Render-Stable)
 // =============================
+
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
@@ -9,41 +9,50 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
-const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const puppeteer = require("puppeteer");
 
 const app = express();
 
 // =============================
-// ⚙️ Middleware & CORS
+// ⚙️ Middleware & CORS (Render Compatible)
 // =============================
-app.use(
-  cors({
-    origin: [
-      "https://chat.moggumung.id",
-      "http://localhost:5500", // untuk testing lokal
-      "http://127.0.0.1:5500",
-      "https://mgmwa.onrender.com"
-    ],
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
-  })
-);
+const allowedOrigins = [
+  "https://chat.moggumung.id",
+  "https://mgmwa.onrender.com",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+];
 
-// ✅ Tambahkan preflight handler untuk OPTIONS
-app.options("*", cors());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+  }
+  res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, X-Requested-With"
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+app.use(express.json());
 
 // =============================
-// 🧠 HTTP + WebSocket Server
+// 🌐 HTTP + WebSocket Server
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["https://chat.moggumung.id"],
-    methods: ["GET", "POST", "DELETE"],
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
   transports: ["websocket", "polling"],
@@ -53,80 +62,105 @@ const io = new Server(server, {
 });
 
 // =============================
-// 💬 Clients
+// 💾 Clients Storage
 // =============================
 let clients = {};
 const reconnectDelay = 10000;
 
 // =============================
-// 🧩 Chrome Path Detector
+// 🔌 Socket.io Connection
+// =============================
+io.on("connection", (socket) => {
+  console.log("🔌 Dashboard connected via Socket.io");
+  socket.emit("serverStatus", { connected: true, time: new Date() });
+
+  const heartbeat = setInterval(() => {
+    socket.emit("heartbeat", { time: new Date().toISOString() });
+  }, 5000);
+
+  socket.on("disconnect", (reason) => {
+    console.log(`❌ Dashboard disconnected (${reason})`);
+    clearInterval(heartbeat);
+  });
+});
+
+// =============================
+// 🧭 Chromium Path Detector (Render compatible)
 // =============================
 async function detectChromiumPath() {
-  const baseDir = "/tmp/chromium-cache";
-  const chromeRoot = path.join(baseDir, "chrome");
-
-  if (!fs.existsSync(baseDir)) {
-    console.log("📁 Membuat folder cache Puppeteer di:", baseDir);
-    fs.mkdirSync(baseDir, { recursive: true });
-  }
-
-  // 1️⃣ Gunakan bawaan Puppeteer
   try {
-    const chromePath = puppeteer.executablePath();
-    if (fs.existsSync(chromePath)) {
-      console.log("✅ Chromium bawaan Puppeteer ditemukan:", chromePath);
-      return chromePath;
-    } else {
-      console.warn("⚠️ Puppeteer internal path tidak valid:", chromePath);
+    let chromiumPath;
+
+    // Render env stores temp files in /tmp
+    const tmpPath = "/tmp/chromium-cache";
+    if (!fs.existsSync(tmpPath)) {
+      console.log("📁 Membuat folder cache Puppeteer di:", tmpPath);
+      fs.mkdirSync(tmpPath, { recursive: true });
     }
-  } catch (err) {
-    console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
-  }
 
-  // 2️⃣ Pastikan Chromium terinstall di /tmp
-  console.log("⬇️ Memastikan Chromium sudah ada di", baseDir);
-  try {
-    execSync(`npx puppeteer browsers install chrome --path ${baseDir}`, {
-      stdio: "inherit",
-    });
-  } catch (err) {
-    console.error("❌ Gagal mendownload Chromium otomatis:", err.message);
-  }
-
-  // 3️⃣ Cari Chrome yang sudah terpasang
-  try {
-    const dirs = fs.readdirSync(chromeRoot, { withFileTypes: true });
-    const latest = dirs.sort((a, b) => (a.name > b.name ? -1 : 1))[0];
-    const chromeCandidate = path.join(
-      chromeRoot,
-      latest.name,
-      "chrome-linux64",
-      "chrome"
-    );
-    if (fs.existsSync(chromeCandidate)) {
-      console.log("✅ Chromium ditemukan:", chromeCandidate);
-      return chromeCandidate;
+    // Try puppeteer.executablePath() first
+    try {
+      chromiumPath = puppeteer.executablePath();
+      if (fs.existsSync(chromiumPath)) {
+        console.log("✅ Chromium ditemukan:", chromiumPath);
+        return chromiumPath;
+      }
+    } catch (err) {
+      console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
     }
-  } catch (err) {
-    console.error("❌ Gagal membaca folder cache:", err.message);
-  }
 
-  throw new Error("❌ Chromium tidak ditemukan setelah percobaan install.");
+    // Try searching local chromium folders
+    const localChrome = path.join(tmpPath, "chrome");
+    if (fs.existsSync(localChrome)) {
+      const dirs = fs.readdirSync(localChrome);
+      if (dirs.length > 0) {
+        const latest = path.join(
+          localChrome,
+          dirs[0],
+          "chrome-linux64",
+          "chrome"
+        );
+        if (fs.existsSync(latest)) {
+          console.log("✅ Chromium ditemukan (local cache):", latest);
+          return latest;
+        }
+      }
+    }
+
+    console.log("⬇️ Mencoba download Chromium otomatis ke", tmpPath);
+    const { execSync } = require("child_process");
+    execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
+
+    // Check again
+    if (fs.existsSync(localChrome)) {
+      const dirs = fs.readdirSync(localChrome);
+      if (dirs.length > 0) {
+        const latest = path.join(
+          localChrome,
+          dirs[0],
+          "chrome-linux64",
+          "chrome"
+        );
+        if (fs.existsSync(latest)) {
+          console.log("✅ Chromium berhasil diinstall:", latest);
+          return latest;
+        }
+      }
+    }
+
+    throw new Error("❌ Chromium tidak ditemukan setelah percobaan install.");
+  } catch (err) {
+    console.error("❌ Gagal deteksi Chromium:", err.message);
+    throw err;
+  }
 }
 
 // =============================
-// 📱 Create WhatsApp Client
+// 🤖 Create WhatsApp Client
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-
-  let chromiumPath;
-  try {
-    chromiumPath = await detectChromiumPath();
-  } catch (err) {
-    console.error(`❌ Tidak bisa menemukan Chrome untuk ${id}:`, err.message);
-    return;
-  }
+  const chromiumPath = await detectChromiumPath();
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
@@ -140,6 +174,7 @@ async function createClient(id) {
         "--disable-gpu",
         "--single-process",
         "--no-zygote",
+        "--disable-extensions",
       ],
     },
   });
@@ -163,7 +198,11 @@ async function createClient(id) {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-    setTimeout(() => createClient(id), reconnectDelay);
+
+    setTimeout(() => {
+      console.log(`🔄 Reconnecting client ${id}...`);
+      createClient(id);
+    }, reconnectDelay);
   });
 
   client.on("message", (msg) => {
@@ -179,18 +218,42 @@ async function createClient(id) {
 }
 
 // =============================
-// 🧪 API Routes
+// 🌐 API ROUTES
 // =============================
 
-// Add Device
+// Add Number (generate QR)
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
   if (clients[id] && clients[id].status === "connected") {
     return res.json({ message: "Client already connected" });
   }
-
   createClient(id);
   res.json({ message: `Client ${id} sedang login...` });
+});
+
+// Send Message
+app.post("/send", async (req, res) => {
+  const { id, to, message } = req.body;
+  if (!clients[id]) return res.status(400).json({ error: "Client not found" });
+
+  try {
+    await clients[id].client.sendMessage(`${to}@c.us`, message);
+    clients[id].last_seen = new Date();
+    res.json({ status: "sent", to, message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Send failed" });
+  }
+});
+
+// Status
+app.get("/status", (req, res) => {
+  const list = Object.keys(clients).map((id) => ({
+    id,
+    status: clients[id].status,
+    last_seen: clients[id].last_seen,
+  }));
+  res.json(list);
 });
 
 // Logout
@@ -205,11 +268,12 @@ app.get("/logout/:id", async (req, res) => {
     console.log(`🚪 ${id} logged out`);
     res.json({ message: `${id} logged out successfully` });
   } catch (err) {
+    console.error("❌ Logout failed:", err.message);
     res.status(500).json({ error: "Logout failed" });
   }
 });
 
-// Delete Session
+// Delete Device
 app.delete("/delete/:id", async (req, res) => {
   const id = req.params.id;
   if (!clients[id]) return res.status(404).json({ error: "Client not found" });
@@ -217,10 +281,7 @@ app.delete("/delete/:id", async (req, res) => {
   try {
     await clients[id].client.destroy();
     delete clients[id];
-    const sessionPath = path.join(
-      __dirname,
-      `.wwebjs_auth/session-${id}`
-    );
+    const sessionPath = path.join(__dirname, `.wwebjs_auth/session-${id}`);
     if (fs.existsSync(sessionPath))
       fs.rmSync(sessionPath, { recursive: true, force: true });
 
@@ -228,27 +289,18 @@ app.delete("/delete/:id", async (req, res) => {
     console.log(`🗑️ Session ${id} deleted`);
     res.json({ message: `${id} session deleted successfully` });
   } catch (err) {
+    console.error("❌ Delete failed:", err.message);
     res.status(500).json({ error: "Delete failed" });
   }
 });
 
-// Status
-app.get("/status", (req, res) => {
-  const list = Object.keys(clients).map((id) => ({
-    id,
-    status: clients[id].status,
-    last_seen: clients[id].last_seen,
-  }));
-  res.json(list);
-});
-
 // Root
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Render Stable Final)");
+  res.send("✅ Moggumung WA Backend Active (Render-Stable v9)");
 });
 
 // =============================
-// 🕒 KeepAlive Ping
+// 🕒 KeepAlive
 // =============================
 const KEEPALIVE_URL = process.env.KEEPALIVE_URL || "https://mgmwa.onrender.com";
 setInterval(async () => {
