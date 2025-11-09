@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: mgmwa
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: "false"
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/.cache/puppeteer
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome
+      - key: PORT
+        value: 10000
