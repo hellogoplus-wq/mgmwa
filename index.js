@@ -1,25 +1,27 @@
-import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
-import qrcode from 'qrcode-terminal';
+const express = require("express");
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const qrcode = require("qrcode-terminal");
 
 const app = express();
-app.use(express.json());
+const port = process.env.PORT || 10000;
 
 const client = new Client({
-  authStrategy: new LocalAuth({ clientId: "multi-device-01" })
+  authStrategy: new LocalAuth(),
 });
 
-client.on('qr', qr => {
-  console.log('QR RECEIVED', qr);
+client.on("qr", (qr) => {
+  console.log("QR RECEIVED");
+  qrcode.generate(qr, { small: true });
 });
 
-client.on('ready', () => {
-  console.log('WhatsApp is ready!');
+client.on("ready", () => {
+  console.log("✅ WhatsApp client is ready!");
 });
 
 client.initialize();
 
-app.get('/', (req, res) => res.send('WA Backend Active'));
+app.get("/", (req, res) => {
+  res.send("WA Backend is running 🚀");
+});
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(port, () => console.log(`Server running on port ${port}`));
