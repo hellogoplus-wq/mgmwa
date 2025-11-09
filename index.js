@@ -70,23 +70,23 @@ io.on("connection", (socket) => {
 // 🧩 Smart Chromium Detector + Auto Downloader
 // =============================
 // =============================
-// 🧩 Self-contained Chromium Detector for Render
+// 🧩 Stable Puppeteer Path Fix for Render
 // =============================
 async function detectChromiumPath() {
   const path = require("path");
   const { execSync } = require("child_process");
 
-  // 🧠 Gunakan cache folder internal aplikasi
-  const cacheDir = path.join(__dirname, ".local-chromium");
-  const chromeRoot = path.join(cacheDir, "chrome");
+  // Tempat stabil di container Render
+  const baseDir = "/tmp/chromium-cache";
+  const chromeRoot = path.join(baseDir, "chrome");
 
-  // Pastikan cache folder ada
-  if (!fs.existsSync(cacheDir)) {
-    console.log("📁 Membuat folder cache Puppeteer di:", cacheDir);
-    fs.mkdirSync(cacheDir, { recursive: true });
+  // Pastikan folder ada
+  if (!fs.existsSync(baseDir)) {
+    console.log("📁 Membuat folder cache Puppeteer di:", baseDir);
+    fs.mkdirSync(baseDir, { recursive: true });
   }
 
-  // Coba gunakan puppeteer.executablePath() terlebih dahulu
+  // Coba gunakan bawaan Puppeteer dulu
   try {
     const chromePath = puppeteer.executablePath();
     if (fs.existsSync(chromePath)) {
@@ -99,17 +99,17 @@ async function detectChromiumPath() {
     console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
   }
 
-  // Download manual jika belum ada
-  console.log("⬇️ Mencoba download Chromium secara otomatis ke", cacheDir);
+  // Download otomatis bila belum ada
+  console.log("⬇️ Memastikan Chromium sudah ada di", baseDir);
   try {
-    execSync(`npx puppeteer browsers install chrome --path ${cacheDir}`, {
+    execSync(`npx puppeteer browsers install chrome --path ${baseDir}`, {
       stdio: "inherit",
     });
   } catch (err) {
     console.error("❌ Gagal mendownload Chromium otomatis:", err.message);
   }
 
-  // Cari versi Chrome terbaru yang sudah diinstall
+  // Ambil versi terbaru dari cache
   try {
     const dirs = fs.readdirSync(chromeRoot, { withFileTypes: true });
     const latest = dirs.sort((a, b) => (a.name > b.name ? -1 : 1))[0];
@@ -119,11 +119,12 @@ async function detectChromiumPath() {
       return chromeCandidate;
     }
   } catch (err) {
-    console.error("❌ Gagal membaca folder cache lokal:", err.message);
+    console.error("❌ Gagal membaca folder cache:", err.message);
   }
 
   throw new Error("❌ Chromium tidak ditemukan setelah percobaan install.");
 }
+
 
 
 // =============================
