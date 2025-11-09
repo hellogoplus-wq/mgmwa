@@ -66,7 +66,7 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧩 Detect Chromium Path (Hybrid)
+// 🧩 Detect Chromium Path (Hybrid Modern)
 // =============================
 async function detectChromiumPath() {
   const candidates = [
@@ -83,11 +83,18 @@ async function detectChromiumPath() {
     }
   }
 
-  // fallback — gunakan versi internal Puppeteer
-  const browserFetcher = puppeteer.createBrowserFetcher();
-  const revisionInfo = await browserFetcher.download(puppeteer._preferredRevision);
-  console.log("⬇️ Downloaded fallback Chromium:", revisionInfo.executablePath);
-  return revisionInfo.executablePath;
+  console.log("⚠️ Chromium not found, launching Puppeteer to detect internal binary...");
+
+  // ✅ fallback modern Puppeteer (tanpa createBrowserFetcher)
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
+  const executablePath = puppeteer.executablePath();
+  await browser.close();
+
+  console.log("⬇️ Using Puppeteer internal Chromium:", executablePath);
+  return executablePath;
 }
 
 // =============================
