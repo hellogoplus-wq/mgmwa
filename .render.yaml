@@ -6,8 +6,8 @@ services:
     buildCommand: |
       echo "⚙️ Installing dependencies..."
       npm install --legacy-peer-deps
-      echo "⬇️ Forcing Puppeteer to download Chromium..."
-      node node_modules/puppeteer/install.js
+      echo "⬇️ Downloading Chromium for Puppeteer..."
+      npx puppeteer browsers install chrome
     startCommand: npm start
     autoDeploy: true
 
@@ -15,11 +15,8 @@ services:
       - key: NODE_VERSION
         value: 18
 
-      # 🧩 Jangan skip download
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "false"
-
-      # 🧭 Kosongkan supaya Puppeteer pakai versi internalnya
       - key: PUPPETEER_EXECUTABLE_PATH
         value: ""
 
