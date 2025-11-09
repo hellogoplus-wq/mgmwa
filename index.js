@@ -118,9 +118,8 @@ const reconnectDelay = 10000;
 // =============================
 // 🧩 DETECT OR INSTALL CHROMIUM (Render Compatible)
 // =============================
-import { execSync } from "child_process";
-import fs from "fs";
-import path from "path";
+const { execSync } = require("child_process");
+const path = require("path");
 
 async function detectChromiumPath() {
   try {
