@@ -286,3 +286,7 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
   console.log(`🌐 Accessible via ${KEEPALIVE_URL}`);
 });
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
