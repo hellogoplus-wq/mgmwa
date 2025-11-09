@@ -6,14 +6,27 @@ services:
     buildCommand: npm install
     startCommand: npm start
     autoDeploy: true
+
     envVars:
+      # 🧠 Node.js Environment
       - key: NODE_VERSION
         value: 18
+
+      # ⚙️ Puppeteer / Chromium Settings
       - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "false"
-      - key: PUPPETEER_CACHE_DIR
-        value: /opt/render/.cache/puppeteer
+        value: "true"
       - key: PUPPETEER_EXECUTABLE_PATH
-        value: /opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome
+        value: /usr/bin/chromium
+
+      # 🩵 Basic Environment Config
       - key: PORT
         value: 10000
+      - key: TZ
+        value: Asia/Makassar
+
+      # (Opsional) Keepalive URL untuk ping otomatis
+      - key: KEEPALIVE_URL
+        value: https://mgmwa.onrender.com
+
+    # Optional: auto health check
+    healthCheckPath: /
