@@ -1,5 +1,5 @@
 // =============================
-// 🚀 Moggumung WA Backend (Hybrid Stable Version)
+// 🚀 Moggumung WA Backend (Final Stable Render Version)
 // Auto Chrome Detect + Auto Reconnect + KeepAlive Ping
 // =============================
 const express = require("express");
@@ -10,7 +10,8 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
 const fs = require("fs");
-const puppeteer = require("puppeteer");
+const path = require("path");
+const puppeteer = require("puppeteer"); // ✅ hanya sekali deklarasi
 
 const app = express();
 
@@ -20,7 +21,7 @@ const app = express();
 app.use(
   cors({
     origin: ["https://chat.moggumung.id"],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE"],
     credentials: true,
   })
 );
@@ -33,7 +34,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: ["https://chat.moggumung.id"],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE"],
     credentials: true,
   },
   transports: ["websocket", "polling"],
@@ -49,7 +50,7 @@ let clients = {};
 const reconnectDelay = 10000;
 
 // =============================
-// 🔌 Dashboard Socket Connection
+// 🔌 Dashboard Connection
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
@@ -66,10 +67,8 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧩 Detect Chromium Path (Universal)
+// 🧩 Detect Chromium Path (Auto)
 // =============================
-const puppeteer = require("puppeteer");
-
 async function detectChromiumPath() {
   try {
     const path = puppeteer.executablePath();
@@ -77,7 +76,7 @@ async function detectChromiumPath() {
     return path;
   } catch (err) {
     console.error("⚠️ Gagal mendeteksi Chromium path:", err.message);
-    return "/usr/bin/chromium-browser"; // fallback manual
+    return "/usr/bin/chromium-browser"; // fallback default
   }
 }
 
@@ -86,25 +85,23 @@ async function detectChromiumPath() {
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-
   const chromiumPath = await detectChromiumPath();
 
- const client = new Client({
-  authStrategy: new LocalAuth({ clientId: id }),
-  puppeteer: {
-    headless: true,
-    executablePath: await detectChromiumPath(),
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--single-process",
-      "--no-zygote"
-    ],
-  },
-});
-
+  const client = new Client({
+    authStrategy: new LocalAuth({ clientId: id }),
+    puppeteer: {
+      headless: true,
+      executablePath: chromiumPath,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
+        "--no-zygote",
+      ],
+    },
+  });
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
@@ -187,7 +184,7 @@ app.get("/status", (req, res) => {
 
 // Root
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Hybrid Chrome + Auto Reconnect)");
+  res.send("✅ Moggumung WA Backend Active (Render Stable Version)");
 });
 
 // =============================
@@ -220,14 +217,13 @@ app.delete("/delete/:id", async (req, res) => {
     await clients[id].client.destroy();
     delete clients[id];
 
-    // Hapus folder session dari LocalAuth
-    const fs = require("fs");
-    const path = require("path");
     const sessionPath = path.join(__dirname, `.wwebjs_auth/session-${id}`);
-    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+    if (fs.existsSync(sessionPath)) {
+      fs.rmSync(sessionPath, { recursive: true, force: true });
+      console.log(`🗑️ Session folder deleted for ${id}`);
+    }
 
     io.emit("status", { id, status: "deleted" });
-    console.log(`🗑️ Session ${id} deleted`);
     res.json({ message: `${id} session deleted successfully` });
   } catch (err) {
     console.error("❌ Delete failed:", err.message);
