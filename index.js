@@ -62,26 +62,27 @@ io.on("connection", (socket) => {
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ clientId: id }),
-    puppeteer: {
-      headless: true,
-      executablePath:
-        process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--single-process",
-        "--no-zygote",
-        "--disable-extensions",
-        "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding",
-        "--disable-backgrounding-occluded-windows",
-      ],
-    },
-  });
+ const client = new Client({
+  authStrategy: new LocalAuth({ clientId: id }),
+  puppeteer: {
+    headless: true,
+    executablePath:
+      process.env.PUPPETEER_EXECUTABLE_PATH || require("puppeteer").executablePath(),
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--single-process",
+      "--no-zygote",
+      "--disable-extensions",
+      "--disable-background-timer-throttling",
+      "--disable-renderer-backgrounding",
+      "--disable-backgrounding-occluded-windows",
+    ],
+  },
+});
+
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
