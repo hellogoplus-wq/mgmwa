@@ -1,5 +1,5 @@
 // =============================
-// 🚀 Moggumung WA Backend (Stable Version)
+// 🚀 Moggumung WA Backend (Stable & Render-Optimized)
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -37,7 +37,7 @@ const io = new Server(server, {
 let clients = {};
 
 // =============================
-// 🔌 Socket Connection
+// 🔌 Socket Connection (Realtime Dashboard)
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
@@ -59,7 +59,6 @@ io.on("connection", (socket) => {
 // =============================
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
-
   if (clients[id]) {
     return res.json({ message: "Client already exists" });
   }
@@ -70,47 +69,71 @@ app.get("/add-number/:id", async (req, res) => {
     authStrategy: new LocalAuth({ clientId: id }),
     puppeteer: {
       headless: true,
+      executablePath:
+        process.env.PUPPETEER_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
+        "--single-process",
+        "--no-zygote",
+        "--disable-extensions",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows",
       ],
     },
   });
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
+  // === QR Event ===
   client.on("qr", async (qr) => {
     const qrImage = await qrcode.toDataURL(qr);
     io.emit("qr", { id, qr: qrImage });
     console.log(`📲 QR untuk ${id} dikirim ke dashboard`);
   });
 
-  client.on("ready", () => {
+  // === Ready Event ===
+  client.on("ready", async () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
-    io.emit("status", { id, status: "connected" });
-    console.log(`✅ ${id} connected`);
+
+    io.emit("status", {
+      id,
+      status: "connected",
+      last_seen: clients[id].last_seen,
+    });
+
+    const info = client.info || {};
+    console.log(`✅ ${id} connected (${info.pushname || "No name"})`);
   });
 
+  // === Disconnected Event ===
   client.on("disconnected", (reason) => {
     clients[id].status = "disconnected";
     clients[id].last_seen = new Date();
-    io.emit("status", { id, status: "disconnected" });
+    io.emit("status", {
+      id,
+      status: "disconnected",
+      last_seen: clients[id].last_seen,
+    });
     console.log(`⚠️ ${id} disconnected (${reason})`);
   });
 
+  // === Incoming Message Event ===
   client.on("message", (msg) => {
     clients[id].last_seen = new Date();
     io.emit("message", { id, from: msg.from, body: msg.body });
   });
 
+  // === Initialize Client ===
   try {
     await client.initialize();
     res.json({ message: `Client ${id} sedang login` });
   } catch (err) {
-    console.error("❌ Error initializing client:", err);
+    console.error("❌ Error initializing WA client:", err);
     res.status(500).send({ error: "Failed to initialize client" });
   }
 });
@@ -145,12 +168,15 @@ app.get("/status", (req, res) => {
 });
 
 // =============================
-// 🧪 Test
+// 🧪 Test Endpoint
 // =============================
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active");
+  res.send("✅ Moggumung WA Backend Active & Connected");
 });
 
+// =============================
+// 🚀 Start Server
+// =============================
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
