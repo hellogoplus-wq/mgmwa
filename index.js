@@ -31,6 +31,8 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
+  path: "/socket.io/",
+});
   transports: ["websocket", "polling"], // biar Render support fallback
   allowEIO3: true,                      // backward compatibility
   pingTimeout: 30000,                   // tunggu 30 detik sebelum disconnect
