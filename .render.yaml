@@ -3,34 +3,17 @@ services:
     name: mgmwa
     env: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install --legacy-peer-deps
     startCommand: npm start
-    autoDeploy: true
-
     envVars:
-      # 🧠 Node.js Environment
       - key: NODE_VERSION
         value: 18
-
-      # ⚙️ Puppeteer / Chromium Settings
       - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "true"        # biar puppeteer tidak download chrome
-      - key: PUPPETEER_EXECUTABLE_PATH
-        value: /opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome
-
-      # 💡 Jika PUPPETEER_EXECUTABLE_PATH tidak ada, backend otomatis pakai chrome-aws-lambda
-      - key: AWS_EXECUTION_ENV
-        value: render-env
-
-      # 🩵 Basic Environment Config
+        value: "false"
       - key: PORT
         value: 10000
       - key: TZ
         value: Asia/Makassar
-
-      # (Opsional) Keepalive URL untuk ping otomatis
       - key: KEEPALIVE_URL
         value: https://mgmwa.onrender.com
-
-    # Optional: auto health check
     healthCheckPath: /
