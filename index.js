@@ -1,6 +1,6 @@
 // =============================
-// 🚀 Moggumung WA Backend (Final Stable Render Version)
-// Auto Chrome Detect + Auto Reconnect + KeepAlive Ping
+// 🚀 Moggumung WA Backend (Render Stable Final)
+// With Auto-Reconnect + Logout/Delete + Chrome Cache Fix
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -9,9 +9,10 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
+const puppeteer = require("puppeteer");
 const fs = require("fs");
 const path = require("path");
-const puppeteer = require("puppeteer"); // ✅ hanya sekali deklarasi
+const { execSync } = require("child_process");
 
 const app = express();
 
@@ -44,53 +45,28 @@ const io = new Server(server, {
 });
 
 // =============================
-// 💬 Clients Storage
+// 💬 Clients
 // =============================
 let clients = {};
 const reconnectDelay = 10000;
 
 // =============================
-// 🔌 Dashboard Connection
-// =============================
-io.on("connection", (socket) => {
-  console.log("🔌 Dashboard connected via Socket.io");
-  socket.emit("serverStatus", { connected: true, time: new Date() });
-
-  const heartbeat = setInterval(() => {
-    socket.emit("heartbeat", { time: new Date().toISOString() });
-  }, 5000);
-
-  socket.on("disconnect", (reason) => {
-    console.log(`❌ Dashboard disconnected (${reason})`);
-    clearInterval(heartbeat);
-  });
-});
-
-// =============================
-// 🧩 Smart Chromium Detector + Auto Downloader
-// =============================
-// =============================
-// 🧩 Stable Puppeteer Path Fix for Render (Final)
+// 🧩 Chrome Path Detector
 // =============================
 async function detectChromiumPath() {
-  const fs = require("fs");
-  const path = require("path");
-  const { execSync } = require("child_process");
-
   const baseDir = "/tmp/chromium-cache";
   const chromeRoot = path.join(baseDir, "chrome");
 
-  // Buat folder cache Puppeteer di /tmp
   if (!fs.existsSync(baseDir)) {
     console.log("📁 Membuat folder cache Puppeteer di:", baseDir);
     fs.mkdirSync(baseDir, { recursive: true });
   }
 
-  // Coba jalur Chromium bawaan Puppeteer
+  // 1️⃣ Gunakan bawaan Puppeteer
   try {
     const chromePath = puppeteer.executablePath();
     if (fs.existsSync(chromePath)) {
-      console.log("🧭 Chromium bawaan Puppeteer ditemukan:", chromePath);
+      console.log("✅ Chromium bawaan Puppeteer ditemukan:", chromePath);
       return chromePath;
     } else {
       console.warn("⚠️ Puppeteer internal path tidak valid:", chromePath);
@@ -99,7 +75,7 @@ async function detectChromiumPath() {
     console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
   }
 
-  // Install Chromium otomatis jika belum ada
+  // 2️⃣ Pastikan Chromium terinstall di /tmp
   console.log("⬇️ Memastikan Chromium sudah ada di", baseDir);
   try {
     execSync(`npx puppeteer browsers install chrome --path ${baseDir}`, {
@@ -109,7 +85,7 @@ async function detectChromiumPath() {
     console.error("❌ Gagal mendownload Chromium otomatis:", err.message);
   }
 
-  // Cari versi Chrome yang sudah di-download
+  // 3️⃣ Cari Chrome yang sudah terpasang
   try {
     const dirs = fs.readdirSync(chromeRoot, { withFileTypes: true });
     const latest = dirs.sort((a, b) => (a.name > b.name ? -1 : 1))[0];
@@ -130,18 +106,11 @@ async function detectChromiumPath() {
   throw new Error("❌ Chromium tidak ditemukan setelah percobaan install.");
 }
 
-
-
 // =============================
 // 📱 Create WhatsApp Client
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-
-  if (clients[id] && clients[id].status === "connected") {
-    console.log(`⚠️ ${id} sudah aktif, lewati inisialisasi`);
-    return;
-  }
 
   let chromiumPath;
   try {
@@ -150,7 +119,6 @@ async function createClient(id) {
     console.error(`❌ Tidak bisa menemukan Chrome untuk ${id}:`, err.message);
     return;
   }
-
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
@@ -167,7 +135,6 @@ async function createClient(id) {
       ],
     },
   });
-
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
@@ -188,12 +155,7 @@ async function createClient(id) {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-
-    // 🔁 Auto reconnect
-    setTimeout(() => {
-      console.log(`🔄 Reconnecting client ${id}...`);
-      createClient(id);
-    }, reconnectDelay);
+    setTimeout(() => createClient(id), reconnectDelay);
   });
 
   client.on("message", (msg) => {
@@ -209,10 +171,10 @@ async function createClient(id) {
 }
 
 // =============================
-// 🌐 API Routes
+// 🧪 API Routes
 // =============================
 
-// Add Number
+// Add Device
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
   if (clients[id] && clients[id].status === "connected") {
@@ -223,39 +185,7 @@ app.get("/add-number/:id", async (req, res) => {
   res.json({ message: `Client ${id} sedang login...` });
 });
 
-// Send Message
-app.post("/send", async (req, res) => {
-  const { id, to, message } = req.body;
-  if (!clients[id]) return res.status(400).json({ error: "Client not found" });
-
-  try {
-    await clients[id].client.sendMessage(`${to}@c.us`, message);
-    clients[id].last_seen = new Date();
-    res.json({ status: "sent", to, message });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Send failed" });
-  }
-});
-
-// Status List
-app.get("/status", (req, res) => {
-  const list = Object.keys(clients).map((id) => ({
-    id,
-    status: clients[id].status,
-    last_seen: clients[id].last_seen,
-  }));
-  res.json(list);
-});
-
-// Root
-app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Render Stable Version)");
-});
-
-// =============================
-// 🚪 Logout Device
-// =============================
+// Logout
 app.get("/logout/:id", async (req, res) => {
   const id = req.params.id;
   if (!clients[id]) return res.status(404).json({ error: "Client not found" });
@@ -267,14 +197,11 @@ app.get("/logout/:id", async (req, res) => {
     console.log(`🚪 ${id} logged out`);
     res.json({ message: `${id} logged out successfully` });
   } catch (err) {
-    console.error("❌ Logout failed:", err.message);
     res.status(500).json({ error: "Logout failed" });
   }
 });
 
-// =============================
-// 🗑️ Delete Device (Clear Session)
-// =============================
+// Delete Session
 app.delete("/delete/:id", async (req, res) => {
   const id = req.params.id;
   if (!clients[id]) return res.status(404).json({ error: "Client not found" });
@@ -282,19 +209,34 @@ app.delete("/delete/:id", async (req, res) => {
   try {
     await clients[id].client.destroy();
     delete clients[id];
-
-    const sessionPath = path.join(__dirname, `.wwebjs_auth/session-${id}`);
-    if (fs.existsSync(sessionPath)) {
+    const sessionPath = path.join(
+      __dirname,
+      `.wwebjs_auth/session-${id}`
+    );
+    if (fs.existsSync(sessionPath))
       fs.rmSync(sessionPath, { recursive: true, force: true });
-      console.log(`🗑️ Session folder deleted for ${id}`);
-    }
 
     io.emit("status", { id, status: "deleted" });
+    console.log(`🗑️ Session ${id} deleted`);
     res.json({ message: `${id} session deleted successfully` });
   } catch (err) {
-    console.error("❌ Delete failed:", err.message);
     res.status(500).json({ error: "Delete failed" });
   }
+});
+
+// Status
+app.get("/status", (req, res) => {
+  const list = Object.keys(clients).map((id) => ({
+    id,
+    status: clients[id].status,
+    last_seen: clients[id].last_seen,
+  }));
+  res.json(list);
+});
+
+// Root
+app.get("/", (req, res) => {
+  res.send("✅ Moggumung WA Backend Active (Render Stable Final)");
 });
 
 // =============================
