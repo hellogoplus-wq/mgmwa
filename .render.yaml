@@ -6,17 +6,33 @@ services:
     buildCommand: |
       echo "🏗️ Installing dependencies..."
       npm install
-      echo "⬇️ Preinstalling Chromium for Puppeteer..."
+      echo "⬇️ Preinstalling Puppeteer Chrome..."
       npx puppeteer browsers install chrome
     startCommand: npm start
     autoDeploy: true
+
     envVars:
+      # 🧠 Node environment
       - key: NODE_VERSION
         value: 18
-      - key: TZ
-        value: Asia/Makassar
+
+      # ⚙️ Puppeteer / Chromium Settings
+      - key: PUPPETEER_CACHE_DIR
+        value: /tmp/chromium-cache
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "true"
+
+      # 🌏 Environment
+      - key: PORT
+        value: 10000
+      - key: TZ
+        value: Asia/Makassar
+
+      # 🩵 Keepalive URL
       - key: KEEPALIVE_URL
         value: https://mgmwa.onrender.com
+
+    # ✅ Health check (optional)
     healthCheckPath: /
