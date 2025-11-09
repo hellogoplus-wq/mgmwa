@@ -8,26 +8,21 @@ services:
     autoDeploy: true
 
     envVars:
-      # ⚙️ Node.js Version
       - key: NODE_VERSION
         value: 18
 
-      # 🧩 Puppeteer Settings
+      # ⚙️ PUPPETEER harus download Chrome bawaan sendiri
       - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "false"    # biarkan Puppeteer download Chrome otomatis
+        value: "false"
       - key: PUPPETEER_EXECUTABLE_PATH
-        value: ""         # dikosongkan agar auto detect bawaan Puppeteer
+        value: ""
 
-      # 🌍 App Settings
       - key: PORT
         value: 10000
       - key: TZ
         value: Asia/Makassar
-
-      # 💓 KeepAlive Ping URL
       - key: KEEPALIVE_URL
         value: https://mgmwa.onrender.com
 
-    # 🔍 Health Check
     healthCheckPath: /
     healthCheckTimeoutSeconds: 60
