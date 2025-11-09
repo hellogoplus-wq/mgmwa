@@ -1,17 +1,19 @@
 {
   "name": "mgmwa",
   "version": "1.0.0",
-  "description": "Moggumung WhatsApp Backend for Render",
-  "main": "index.js",
+  "description": "Moggumung WhatsApp Dashboard Backend",
+  "main": "app.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node app.js",
     "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
-    "express": "^4.19.0",
-    "socket.io": "^4.7.2",
+    "axios": "^1.6.7",
     "cors": "^2.8.5",
-    "puppeteer": "^22.7.0",
-    "whatsapp-web.js": "^1.26.0",
-    "qrcode": "^1.5.3"
+    "express": "^4.19.2",
+    "qrcode": "^1.5.3",
+    "socket.io": "^4.7.2",
+    "whatsapp-web.js": "^1.24.0",
+    "puppeteer": "^23.0.2"
+  }
 }
