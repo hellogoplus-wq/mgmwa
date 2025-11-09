@@ -44,7 +44,7 @@ app.use(express.json());
 // =============================
 // 🧠 HTTP SERVER + SOCKET.IO (Render Safe)
 // =============================
-const server = http.createServer(app); // <-- DIBUAT DULU BARU DIPAKAI DI BAWAH 👇
+const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
@@ -56,31 +56,27 @@ const io = new Server(server, {
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
-  transports: ["polling"],  // ✅ wajib untuk Render Free tier
-  allowEIO3: true,          // ✅ fix kompatibilitas socket versi lama
+  transports: ["polling"],  // ✅ Render Free Tier Safe
+  allowEIO3: true,          // ✅ Fix kompatibilitas client lama
   pingTimeout: 30000,
   pingInterval: 10000,
 });
 
-
 // =============================
-// 🔌 SOCKET.IO CONNECTION FIX (Render + Browser Sync)
+// 🔌 SOCKET.IO CONNECTION FIX
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io:", socket.id);
 
-  // 🔥 Kirim status langsung setelah konek
+  // Kirim status awal
   socket.emit("serverStatus", { connected: true, time: new Date() });
-
-  // Debug event (biar tahu koneksi aktif di browser console)
   socket.emit("welcome", { message: "Hello dashboard, Socket connected!" });
 
-  // 🫀 Heartbeat tiap 5 detik
+  // Kirim heartbeat periodik
   const heartbeat = setInterval(() => {
     socket.emit("heartbeat", { time: new Date().toISOString() });
   }, 5000);
 
-  // Listener untuk debug dari browser
   socket.on("pingServer", () => {
     console.log(`📡 Ping diterima dari dashboard (${socket.id})`);
     socket.emit("pongClient", { time: new Date().toISOString() });
@@ -92,7 +88,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// 🔍 Endpoint manual untuk test koneksi
+// 🔍 Endpoint test koneksi socket
 app.get("/socket-test", (req, res) => {
   res.json({ socket: "ready", time: new Date().toISOString() });
 });
@@ -101,7 +97,7 @@ app.get("/socket-test", (req, res) => {
 app.get("/health", (req, res) => {
   res.json({
     ok: true,
-    socketStatus: io.engine.clientsCount + " connected clients",
+    socketStatus: `${io.engine.clientsCount} connected clients`,
     time: new Date().toISOString(),
   });
 });
@@ -115,31 +111,21 @@ const reconnectDelay = 10000;
 // =============================
 // 🧩 DETECT OR INSTALL CHROMIUM (Render Compatible)
 // =============================
-const { execSync } = require("child_process");
-const path = require("path");
-
 async function detectChromiumPath() {
   try {
-    const defaultPath = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+    const defaultPath = "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+
     if (fs.existsSync(defaultPath)) {
       console.log("✅ Chromium ditemukan:", defaultPath);
       return defaultPath;
     }
 
-    console.warn("⚠️ Chromium belum ada, mencoba install ke /tmp/chromium-cache...");
-
-    // Pastikan folder cache ada
-    fs.mkdirSync("/tmp/chromium-cache", { recursive: true });
-
-    // Jalankan perintah install browser via Puppeteer
-    console.log("⬇️ Mendownload Chromium versi ringan...");
+    console.warn("⚠️ Chromium belum ada, mencoba install via Puppeteer...");
     execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
 
-    // Cari file executable hasil install
-    const chromePath = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
-    if (fs.existsSync(chromePath)) {
-      console.log("✅ Chromium berhasil diinstall:", chromePath);
-      return chromePath;
+    if (fs.existsSync(defaultPath)) {
+      console.log("✅ Chromium berhasil diinstall:", defaultPath);
+      return defaultPath;
     } else {
       throw new Error("❌ Chromium tidak ditemukan setelah install");
     }
@@ -148,7 +134,6 @@ async function detectChromiumPath() {
     throw err;
   }
 }
-
 
 // =============================
 // 📱 CREATE CLIENT
@@ -199,8 +184,6 @@ async function createClient(id) {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-
-    // Auto reconnect
     setTimeout(() => {
       console.log(`🔁 Reconnecting ${id}...`);
       createClient(id);
@@ -282,8 +265,8 @@ app.delete("/delete/:id", async (req, res) => {
   try {
     await clients[id].client.destroy();
     delete clients[id];
-    const path = `.wwebjs_auth/session-${id}`;
-    if (fs.existsSync(path)) fs.rmSync(path, { recursive: true, force: true });
+    const authPath = `.wwebjs_auth/session-${id}`;
+    if (fs.existsSync(authPath)) fs.rmSync(authPath, { recursive: true, force: true });
 
     io.emit("status", { id, status: "deleted" });
     console.log(`🗑️ Session ${id} deleted`);
@@ -292,11 +275,6 @@ app.delete("/delete/:id", async (req, res) => {
     console.error("❌ Delete failed:", err.message);
     res.status(500).json({ error: "Delete failed" });
   }
-});
-
-// Healthcheck
-app.get("/health", (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
 });
 
 // Root
