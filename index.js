@@ -1,6 +1,6 @@
 // =============================
-// 🚀 Moggumung WA Backend (Render Optimized Stable)
-// Auto-Reconnect + KeepAlive + Chromium Auto-Detect
+// 🚀 Moggumung WA Backend (Hybrid Stable Version)
+// Auto Chrome Detect + Auto Reconnect + KeepAlive Ping
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -9,12 +9,13 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
-const puppeteer = require("puppeteer"); // ✅ gunakan full puppeteer
+const fs = require("fs");
+const puppeteer = require("puppeteer");
 
 const app = express();
 
 // =============================
-// ⚙️ Middleware & CORS Setup
+// ⚙️ Middleware & CORS
 // =============================
 app.use(
   cors({
@@ -26,7 +27,7 @@ app.use(
 app.use(express.json());
 
 // =============================
-// ⚙️ HTTP + WebSocket Server
+// 🧠 HTTP + WebSocket Server
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -42,13 +43,13 @@ const io = new Server(server, {
 });
 
 // =============================
-// 💬 Clients Map
+// 💬 Clients Storage
 // =============================
 let clients = {};
-const reconnectDelay = 10000; // 10 detik
+const reconnectDelay = 10000;
 
 // =============================
-// 🔌 Dashboard Connection
+// 🔌 Dashboard Socket Connection
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
@@ -65,25 +66,43 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 📱 CREATE CLIENT FUNCTION
+// 🧩 Detect Chromium Path (Hybrid)
+// =============================
+async function detectChromiumPath() {
+  const candidates = [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome-stable",
+  ];
+
+  for (const path of candidates) {
+    if (path && fs.existsSync(path)) {
+      console.log("🧭 Chromium found:", path);
+      return path;
+    }
+  }
+
+  // fallback — gunakan versi internal Puppeteer
+  const browserFetcher = puppeteer.createBrowserFetcher();
+  const revisionInfo = await browserFetcher.download(puppeteer._preferredRevision);
+  console.log("⬇️ Downloaded fallback Chromium:", revisionInfo.executablePath);
+  return revisionInfo.executablePath;
+}
+
+// =============================
+// 📱 Create WhatsApp Client
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
-  // ✅ Ambil Chromium bawaan Puppeteer (Render compatible fix)
-  const browserFetcher = puppeteer.createBrowserFetcher();
-  const revision = puppeteer._preferredRevision || "1195492"; // versi stabil
-  console.log("🌐 Chromium revision:", revision);
-
-  const revisionInfo = await browserFetcher.download(revision);
-  const chromiumPath = revisionInfo.executablePath;
-  console.log("🧭 Chromium path:", chromiumPath);
+  const chromiumPath = await detectChromiumPath();
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
     puppeteer: {
       headless: true,
-      executablePath: chromiumPath, // ✅ fix ENOENT
+      executablePath: chromiumPath,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -119,9 +138,9 @@ async function createClient(id) {
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
 
-    // 🔁 Auto-reconnect
+    // 🔁 Auto reconnect
     setTimeout(() => {
-      console.log(`🔄 Mencoba reconnect client ${id}...`);
+      console.log(`🔄 Reconnecting client ${id}...`);
       createClient(id);
     }, reconnectDelay);
   });
@@ -139,11 +158,12 @@ async function createClient(id) {
 }
 
 // =============================
-// 🧠 Add New Number
+// 🌐 API Routes
 // =============================
+
+// Add Number
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
-
   if (clients[id] && clients[id].status === "connected") {
     return res.json({ message: "Client already connected" });
   }
@@ -152,9 +172,7 @@ app.get("/add-number/:id", async (req, res) => {
   res.json({ message: `Client ${id} sedang login...` });
 });
 
-// =============================
-// ✉️ Send Message
-// =============================
+// Send Message
 app.post("/send", async (req, res) => {
   const { id, to, message } = req.body;
   if (!clients[id]) return res.status(400).json({ error: "Client not found" });
@@ -169,9 +187,7 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// =============================
-// 📊 Status
-// =============================
+// Status List
 app.get("/status", (req, res) => {
   const list = Object.keys(clients).map((id) => ({
     id,
@@ -181,17 +197,15 @@ app.get("/status", (req, res) => {
   res.json(list);
 });
 
-// =============================
-// 🧪 Healthcheck
-// =============================
+// Root
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Render Chromium Auto-Fix)");
+  res.send("✅ Moggumung WA Backend Active (Hybrid Chrome + Auto Reconnect)");
 });
 
 // =============================
-// 🕒 KeepAlive Ping (Prevent Render Sleep)
+// 🕒 KeepAlive Ping
 // =============================
-const KEEPALIVE_URL = "https://mgmwa.onrender.com";
+const KEEPALIVE_URL = process.env.KEEPALIVE_URL || "https://mgmwa.onrender.com";
 setInterval(async () => {
   try {
     await axios.get(KEEPALIVE_URL);
@@ -199,7 +213,7 @@ setInterval(async () => {
   } catch (err) {
     console.error("⚠️ KeepAlive failed:", err.message);
   }
-}, 5 * 60 * 1000); // tiap 5 menit
+}, 5 * 60 * 1000);
 
 // =============================
 // 🚀 Start Server
