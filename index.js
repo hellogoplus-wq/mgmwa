@@ -1,6 +1,5 @@
 // =============================
 // 🚀 Moggumung WA Backend (Render-Stable + Socket.io Fix)
-// Full CORS, Auto-Reconnect, KeepAlive, Logout/Delete device
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -11,6 +10,8 @@ const { Server } = require("socket.io");
 const axios = require("axios");
 const fs = require("fs");
 const puppeteer = require("puppeteer");
+const { execSync } = require("child_process");
+const path = require("path");
 
 const app = express();
 
@@ -22,16 +23,12 @@ app.use(
     origin: [
       "https://chat.moggumung.id",
       "https://mgmwa.onrender.com",
-      "http://localhost:5500",
-      "http://127.0.0.1:5500",
+      "http://localhost:5500"
     ],
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
-
-app.options("*", cors());
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
@@ -45,23 +42,26 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // =============================
-// 🧠 HTTP + SOCKET SERVER (Render Stable Fix)
+// 🧠 HTTP SERVER + SOCKET.IO (Render Safe)
 // =============================
+const server = http.createServer(app); // <-- DIBUAT DULU BARU DIPAKAI DI BAWAH 👇
+
 const io = new Server(server, {
   cors: {
     origin: [
       "https://chat.moggumung.id",
       "https://mgmwa.onrender.com",
-      "http://localhost:5500"
+      "http://localhost:5500",
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
-  transports: ["polling"],  // Render safe
-  allowEIO3: true,          // ✅ fix kompatibilitas Socket.io v4 <-> v2
+  transports: ["polling"],  // ✅ wajib untuk Render Free tier
+  allowEIO3: true,          // ✅ fix kompatibilitas socket versi lama
   pingTimeout: 30000,
   pingInterval: 10000,
 });
+
 
 // =============================
 // 🔌 SOCKET.IO CONNECTION FIX (Render + Browser Sync)
