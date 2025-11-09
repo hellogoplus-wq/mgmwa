@@ -3,7 +3,11 @@ services:
     name: mgmwa
     env: node
     plan: free
-    buildCommand: npm install --legacy-peer-deps
+    buildCommand: |
+      echo "⚙️ Installing dependencies..."
+      npm install --legacy-peer-deps
+      echo "⬇️ Forcing Puppeteer to download Chromium..."
+      node node_modules/puppeteer/install.js
     startCommand: npm start
     autoDeploy: true
 
@@ -11,9 +15,11 @@ services:
       - key: NODE_VERSION
         value: 18
 
-      # ⚙️ PUPPETEER harus download Chrome bawaan sendiri
+      # 🧩 Jangan skip download
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: "false"
+
+      # 🧭 Kosongkan supaya Puppeteer pakai versi internalnya
       - key: PUPPETEER_EXECUTABLE_PATH
         value: ""
 
@@ -25,4 +31,4 @@ services:
         value: https://mgmwa.onrender.com
 
     healthCheckPath: /
-    healthCheckTimeoutSeconds: 60
+    healthCheckTimeoutSeconds: 90
