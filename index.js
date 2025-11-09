@@ -1,6 +1,6 @@
 // =============================
-// 🚀 Moggumung WA Backend (Final Stable Version)
-// with Auto-Reconnect + KeepAlive Ping
+// 🚀 Moggumung WA Backend (Render-Ready Stable Version)
+// With Auto-Reconnect + KeepAlive + Chrome Path Fix
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -9,8 +9,13 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
+const puppeteer = require("puppeteer"); // 🧩 penting! bukan puppeteer-core
 
 const app = express();
+
+// =============================
+// ⚙️ Middleware & CORS Setup
+// =============================
 app.use(
   cors({
     origin: ["https://chat.moggumung.id"],
@@ -20,6 +25,9 @@ app.use(
 );
 app.use(express.json());
 
+// =============================
+// 🧠 HTTP + WebSocket Server
+// =============================
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -40,7 +48,7 @@ let clients = {};
 const reconnectDelay = 10000; // 10 detik
 
 // =============================
-// 🔌 Socket Connection
+// 🔌 Dashboard Socket Connection
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
@@ -62,27 +70,31 @@ io.on("connection", (socket) => {
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
- const client = new Client({
-  authStrategy: new LocalAuth({ clientId: id }),
-  puppeteer: {
-    headless: true,
-    executablePath:
-      process.env.PUPPETEER_EXECUTABLE_PATH || require("puppeteer").executablePath(),
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--single-process",
-      "--no-zygote",
-      "--disable-extensions",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
-      "--disable-backgrounding-occluded-windows",
-    ],
-  },
-});
+  // ✅ Gunakan Chrome binary dari Puppeteer
+  const chromePath = await puppeteer
+    .executablePath()
+    .catch(() => "/usr/bin/google-chrome-stable");
 
+  const client = new Client({
+    authStrategy: new LocalAuth({ clientId: id }),
+    puppeteer: {
+      headless: true,
+      executablePath: chromePath,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--single-process",
+        "--no-zygote",
+        "--disable-extensions",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows",
+        "--window-size=800,600",
+      ],
+    },
+  });
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
@@ -95,13 +107,11 @@ async function createClient(id) {
   client.on("ready", async () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
-
     io.emit("status", {
       id,
       status: "connected",
       last_seen: clients[id].last_seen,
     });
-
     const info = client.info || {};
     console.log(`✅ ${id} connected (${info.pushname || "No name"})`);
   });
@@ -178,7 +188,7 @@ app.get("/status", (req, res) => {
 // 🧪 Route: Healthcheck
 // =============================
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Auto-Reconnect + KeepAlive)");
+  res.send("✅ Moggumung WA Backend Active (Auto-Reconnect + Render Chrome Fix)");
 });
 
 // =============================
