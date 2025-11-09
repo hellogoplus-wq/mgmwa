@@ -67,18 +67,33 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧩 Detect Chromium Path (Auto)
+// 🧩 Detect Chromium Path (Auto + Fallback Safe)
 // =============================
 async function detectChromiumPath() {
   try {
     const path = puppeteer.executablePath();
-    console.log("🧭 Chromium found:", path);
+    console.log("🧭 Chromium bawaan Puppeteer:", path);
     return path;
   } catch (err) {
-    console.error("⚠️ Gagal mendeteksi Chromium path:", err.message);
-    return "/usr/bin/chromium-browser"; // fallback default
+    console.warn("⚠️ Tidak bisa deteksi Puppeteer path, fallback manual");
+    // Coba beberapa kemungkinan lokasi Chromium di Render
+    const candidates = [
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+      "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome",
+    ];
+
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        console.log("✅ Chromium ditemukan:", p);
+        return p;
+      }
+    }
+
+    throw new Error("❌ Tidak ada Chromium ditemukan di sistem");
   }
 }
+
 
 // =============================
 // 📱 Create WhatsApp Client
