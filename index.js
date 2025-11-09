@@ -48,24 +48,22 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // =============================
-// 🧠 HTTP + SOCKET SERVER (Render Fix)
+// 🧠 HTTP + SOCKET SERVER (Render Stable Fix)
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
       "https://chat.moggumung.id",
-      "https://mgmwa.onrender.com",
       "http://localhost:5500",
-      "http://127.0.0.1:5500",
+      "https://mgmwa.onrender.com",
     ],
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   },
-  transports: ["websocket", "polling"],
-  allowEIO3: true,
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  transports: ["polling"], // ✅ FORCE POLLING MODE untuk Render Free
+  pingTimeout: 30000,      // pingTimeout dipendekkan agar reconnect cepat
+  pingInterval: 10000,     // pingInterval lebih sering biar dianggap aktif
 });
 
 // =============================
