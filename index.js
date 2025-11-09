@@ -52,28 +52,38 @@ const io = new Server(server, {
 });
 
 // ==== Chromium Path untuk Render ====
-async function detectChromiumPath() {
-  const chromePath =
-    "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+function detectChromiumPath() {
+  const knownPaths = [
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser-stable",
+    "/usr/bin/google-chrome-stable",
+  ];
+
+  for (const p of knownPaths) {
+    if (fs.existsSync(p)) {
+      console.log("✅ Chromium system ditemukan:", p);
+      return p;
+    }
+  }
+
+  console.warn("⚠️ Chromium system tidak ditemukan, fallback ke Puppeteer install...");
   try {
-    if (fs.existsSync(chromePath)) {
-      console.log("✅ Chromium ditemukan:", chromePath);
-      return chromePath;
+    execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
+    const path = "/opt/render/.cache/puppeteer/chrome/linux-131.0.6778.204/chrome-linux64/chrome";
+    if (fs.existsSync(path)) {
+      console.log("✅ Chromium fallback berhasil:", path);
+      return path;
     } else {
-      console.log("⚙️ Menginstall Chromium via Puppeteer...");
-      execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
-      if (fs.existsSync(chromePath)) {
-        console.log("✅ Chromium terinstall:", chromePath);
-        return chromePath;
-      } else {
-        throw new Error("Chromium tidak ditemukan setelah instalasi");
-      }
+      throw new Error("Chromium tidak ditemukan setelah install");
     }
   } catch (err) {
     console.error("❌ detectChromiumPath gagal:", err.message);
     throw err;
   }
 }
+
 
 // ==== WhatsApp Clients ====
 const clients = {};
@@ -92,20 +102,25 @@ io.on("connection", (socket) => {
     try {
       const chromePath = await detectChromiumPath();
 
-      const client = new Client({
-        authStrategy: new LocalAuth({ clientId: sessionId }),
-        puppeteer: {
-          headless: true,
-          executablePath: chromePath,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-software-rasterizer",
-          ],
-        },
-      });
+const client = new Client({
+  authStrategy: new LocalAuth({ clientId: id }),
+  puppeteer: {
+    headless: true,
+    executablePath: detectChromiumPath(),
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-software-rasterizer",
+      "--single-process",
+      "--no-zygote",
+      "--window-size=1920,1080",
+    ],
+  },
+});
+
 
       clients[sessionId] = client;
 
