@@ -119,6 +119,7 @@ app.get("/", (req, res) => {
 
 // Jalankan server
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
+  console.log(`🌐 Accessible via https://mgmwa.onrender.com`);
 });
