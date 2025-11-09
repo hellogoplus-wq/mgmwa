@@ -1,14 +1,17 @@
 // ========================
 // Moggumung WA Server v5
 // ========================
-import express from "express";
-import http from "http";
-import cors from "cors";
-import fs from "fs";
-import { execSync } from "child_process";
-import { Server } from "socket.io";
-import { Client, LocalAuth } from "whatsapp-web.js";
-import qrcode from "qrcode";
+const express = require("express");
+const { Client, LocalAuth } = require("whatsapp-web.js");
+const qrcode = require("qrcode");
+const http = require("http");
+const cors = require("cors");
+const { Server } = require("socket.io");
+const axios = require("axios");
+const fs = require("fs");
+const { execSync } = require("child_process");
+const path = require("path");
+
 
 // ==== App setup ====
 const app = express();
