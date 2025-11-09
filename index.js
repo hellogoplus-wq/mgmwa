@@ -1,6 +1,6 @@
 // =============================
-// 🚀 Moggumung WA Backend (Final Render Version)
-// Stable for Render + Socket.io + Auto-Reconnect + CORS Fix
+// 🚀 Moggumung WA Backend (Render-Stable + Socket.io Fix)
+// Full CORS, Auto-Reconnect, KeepAlive, Logout/Delete device
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -23,23 +23,24 @@ app.use(
       "https://chat.moggumung.id",
       "https://mgmwa.onrender.com",
       "http://localhost:5500",
-      "http://127.0.0.1:5500"
+      "http://127.0.0.1:5500",
     ],
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
 
-// ✅ Global CORS handler (for OPTIONS preflight)
+app.options("*", cors());
+
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", req.headers.origin);
-  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
   res.header("Access-Control-Allow-Credentials", "true");
-
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
@@ -47,7 +48,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // =============================
-// 🧠 HTTP + SOCKET SERVER (RENDER FIXED VERSION)
+// 🧠 HTTP + SOCKET SERVER (Render Fix)
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -56,7 +57,7 @@ const io = new Server(server, {
       "https://chat.moggumung.id",
       "https://mgmwa.onrender.com",
       "http://localhost:5500",
-      "http://127.0.0.1:5500"
+      "http://127.0.0.1:5500",
     ],
     methods: ["GET", "POST"],
     credentials: true,
@@ -67,22 +68,11 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// ✅ Tambahkan endpoint manual untuk Socket.io handshake
-app.get("/socket.io/", (req, res) => {
-  res.send("🧠 Socket.io endpoint is alive");
-});
-
 // =============================
-// 💬 Clients Map
-// =============================
-let clients = {};
-const reconnectDelay = 10000;
-
-// =============================
-// 🔌 SOCKET CONNECTION HANDLER
+// 🔌 SOCKET.IO HANDLER
 // =============================
 io.on("connection", (socket) => {
-  console.log("🔌 Dashboard connected via Socket.io");
+  console.log("🔌 Dashboard connected via Socket.io:", socket.id);
   socket.emit("serverStatus", { connected: true, time: new Date() });
 
   const heartbeat = setInterval(() => {
@@ -95,6 +85,17 @@ io.on("connection", (socket) => {
   });
 });
 
+// Manual handshake check
+app.get("/socket.io/", (req, res) => {
+  res.send("🧠 Socket.io endpoint is alive");
+});
+
+// =============================
+// 💬 Clients Map
+// =============================
+let clients = {};
+const reconnectDelay = 10000;
+
 // =============================
 // 🧩 DETECT CHROMIUM PATH (Render-safe)
 // =============================
@@ -106,7 +107,8 @@ async function detectChromiumPath() {
       return path;
     } else {
       console.warn("⚠️ Path tidak valid, mencoba fallback manual...");
-      const fallback = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+      const fallback =
+        "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
       if (fs.existsSync(fallback)) {
         console.log("✅ Fallback Chromium ditemukan:", fallback);
         return fallback;
@@ -170,7 +172,12 @@ async function createClient(id) {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-    setTimeout(() => createClient(id), reconnectDelay);
+
+    // Auto reconnect
+    setTimeout(() => {
+      console.log(`🔁 Reconnecting ${id}...`);
+      createClient(id);
+    }, reconnectDelay);
   });
 
   client.on("message", (msg) => {
@@ -261,6 +268,11 @@ app.delete("/delete/:id", async (req, res) => {
 });
 
 // Healthcheck
+app.get("/health", (req, res) => {
+  res.json({ ok: true, time: new Date().toISOString() });
+});
+
+// Root
 app.get("/", (req, res) => {
   res.send("✅ Moggumung WA Backend Active (Render-Stable Version)");
 });
@@ -285,8 +297,4 @@ const PORT = process.env.PORT || 10000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
   console.log(`🌐 Accessible via ${KEEPALIVE_URL}`);
-});
-
-app.get("/health", (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
 });
