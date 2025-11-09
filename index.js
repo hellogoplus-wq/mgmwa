@@ -73,8 +73,13 @@ io.on("connection", (socket) => {
 // 🧩 Stable Puppeteer Path Fix for Render
 // =============================
 async function detectChromiumPath() {
-  const path = require("path");
-  const { execSync } = require("child_process");
+  const chromeEnv = "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+  if (fs.existsSync(chromeEnv)) {
+    console.log("✅ Chromium ditemukan (Render cache):", chromeEnv);
+    return chromeEnv;
+  }
+  // lanjut fallback ke /tmp jika tidak ditemukan
+
 
   // Tempat stabil di container Render
   const baseDir = "/tmp/chromium-cache";
