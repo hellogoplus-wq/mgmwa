@@ -1,7 +1,7 @@
 // =============================
-// 🚀 Moggumung WA Backend v9 (Render-Stable)
+// 🚀 Moggumung WA Backend (Final Render Version)
+// Stable for Render + Socket.io + Auto-Reconnect + CORS Fix
 // =============================
-
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
@@ -10,65 +10,72 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
 const fs = require("fs");
-const path = require("path");
 const puppeteer = require("puppeteer");
 
 const app = express();
 
 // =============================
-// ⚙️ Middleware & CORS (Render Compatible)
+// ⚙️ CORS & Middleware
 // =============================
-const allowedOrigins = [
-  "https://chat.moggumung.id",
-  "https://mgmwa.onrender.com",
-  "http://localhost:5500",
-  "http://127.0.0.1:5500",
-];
+app.use(
+  cors({
+    origin: [
+      "https://chat.moggumung.id",
+      "https://mgmwa.onrender.com",
+      "http://localhost:5500",
+      "http://127.0.0.1:5500"
+    ],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    credentials: true,
+  })
+);
 
+// ✅ Global CORS handler (for OPTIONS preflight)
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (allowedOrigins.includes(origin)) {
-    res.header("Access-Control-Allow-Origin", origin);
-  }
-  res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Origin", req.headers.origin);
+  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.header(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Requested-With"
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
   );
   res.header("Access-Control-Allow-Credentials", "true");
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(200);
-  }
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
 app.use(express.json());
 
 // =============================
-// 🌐 HTTP + WebSocket Server
+// 🧠 HTTP + SOCKET SERVER
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    origin: [
+      "https://chat.moggumung.id",
+      "https://mgmwa.onrender.com",
+      "http://localhost:5500",
+      "http://127.0.0.1:5500"
+    ],
+    methods: ["GET", "POST"],
     credentials: true,
   },
   transports: ["websocket", "polling"],
+  path: "/socket.io/",
   allowEIO3: true,
   pingTimeout: 60000,
   pingInterval: 25000,
 });
 
 // =============================
-// 💾 Clients Storage
+// 💬 Clients Map
 // =============================
 let clients = {};
 const reconnectDelay = 10000;
 
 // =============================
-// 🔌 Socket.io Connection
+// 🔌 SOCKET CONNECTION HANDLER
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
@@ -85,82 +92,44 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧭 Chromium Path Detector (Render compatible)
+// 🧩 DETECT CHROMIUM PATH (Render-safe)
 // =============================
 async function detectChromiumPath() {
   try {
-    let chromiumPath;
-
-    // Render env stores temp files in /tmp
-    const tmpPath = "/tmp/chromium-cache";
-    if (!fs.existsSync(tmpPath)) {
-      console.log("📁 Membuat folder cache Puppeteer di:", tmpPath);
-      fs.mkdirSync(tmpPath, { recursive: true });
-    }
-
-    // Try puppeteer.executablePath() first
-    try {
-      chromiumPath = puppeteer.executablePath();
-      if (fs.existsSync(chromiumPath)) {
-        console.log("✅ Chromium ditemukan:", chromiumPath);
-        return chromiumPath;
-      }
-    } catch (err) {
-      console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
-    }
-
-    // Try searching local chromium folders
-    const localChrome = path.join(tmpPath, "chrome");
-    if (fs.existsSync(localChrome)) {
-      const dirs = fs.readdirSync(localChrome);
-      if (dirs.length > 0) {
-        const latest = path.join(
-          localChrome,
-          dirs[0],
-          "chrome-linux64",
-          "chrome"
-        );
-        if (fs.existsSync(latest)) {
-          console.log("✅ Chromium ditemukan (local cache):", latest);
-          return latest;
-        }
+    const path = puppeteer.executablePath();
+    if (fs.existsSync(path)) {
+      console.log("✅ Chromium ditemukan:", path);
+      return path;
+    } else {
+      console.warn("⚠️ Path tidak valid, mencoba fallback manual...");
+      const fallback = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+      if (fs.existsSync(fallback)) {
+        console.log("✅ Fallback Chromium ditemukan:", fallback);
+        return fallback;
+      } else {
+        console.error("❌ Tidak ada Chromium ditemukan.");
+        throw new Error("Chromium not found");
       }
     }
-
-    console.log("⬇️ Mencoba download Chromium otomatis ke", tmpPath);
-    const { execSync } = require("child_process");
-    execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
-
-    // Check again
-    if (fs.existsSync(localChrome)) {
-      const dirs = fs.readdirSync(localChrome);
-      if (dirs.length > 0) {
-        const latest = path.join(
-          localChrome,
-          dirs[0],
-          "chrome-linux64",
-          "chrome"
-        );
-        if (fs.existsSync(latest)) {
-          console.log("✅ Chromium berhasil diinstall:", latest);
-          return latest;
-        }
-      }
-    }
-
-    throw new Error("❌ Chromium tidak ditemukan setelah percobaan install.");
   } catch (err) {
-    console.error("❌ Gagal deteksi Chromium:", err.message);
+    console.error("⚠️ puppeteer.executablePath() gagal:", err.message);
     throw err;
   }
 }
 
 // =============================
-// 🤖 Create WhatsApp Client
+// 📱 CREATE CLIENT
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-  const chromiumPath = await detectChromiumPath();
+
+  let chromiumPath;
+  try {
+    chromiumPath = await detectChromiumPath();
+  } catch {
+    console.error(`❌ Tidak bisa menemukan Chrome untuk ${id}`);
+    return;
+  }
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
@@ -174,7 +143,6 @@ async function createClient(id) {
         "--disable-gpu",
         "--single-process",
         "--no-zygote",
-        "--disable-extensions",
       ],
     },
   });
@@ -198,15 +166,10 @@ async function createClient(id) {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-
-    setTimeout(() => {
-      console.log(`🔄 Reconnecting client ${id}...`);
-      createClient(id);
-    }, reconnectDelay);
+    setTimeout(() => createClient(id), reconnectDelay);
   });
 
   client.on("message", (msg) => {
-    clients[id].last_seen = new Date();
     io.emit("message", { id, from: msg.from, body: msg.body });
   });
 
@@ -218,15 +181,15 @@ async function createClient(id) {
 }
 
 // =============================
-// 🌐 API ROUTES
+// 🌐 ROUTES
 // =============================
 
-// Add Number (generate QR)
+// Add Number
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
-  if (clients[id] && clients[id].status === "connected") {
+  if (clients[id] && clients[id].status === "connected")
     return res.json({ message: "Client already connected" });
-  }
+
   createClient(id);
   res.json({ message: `Client ${id} sedang login...` });
 });
@@ -246,7 +209,7 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// Status
+// Get Status
 app.get("/status", (req, res) => {
   const list = Object.keys(clients).map((id) => ({
     id,
@@ -273,7 +236,7 @@ app.get("/logout/:id", async (req, res) => {
   }
 });
 
-// Delete Device
+// Delete
 app.delete("/delete/:id", async (req, res) => {
   const id = req.params.id;
   if (!clients[id]) return res.status(404).json({ error: "Client not found" });
@@ -281,26 +244,25 @@ app.delete("/delete/:id", async (req, res) => {
   try {
     await clients[id].client.destroy();
     delete clients[id];
-    const sessionPath = path.join(__dirname, `.wwebjs_auth/session-${id}`);
-    if (fs.existsSync(sessionPath))
-      fs.rmSync(sessionPath, { recursive: true, force: true });
+    const path = `.wwebjs_auth/session-${id}`;
+    if (fs.existsSync(path)) fs.rmSync(path, { recursive: true, force: true });
 
     io.emit("status", { id, status: "deleted" });
     console.log(`🗑️ Session ${id} deleted`);
-    res.json({ message: `${id} session deleted successfully` });
+    res.json({ message: `${id} deleted successfully` });
   } catch (err) {
     console.error("❌ Delete failed:", err.message);
     res.status(500).json({ error: "Delete failed" });
   }
 });
 
-// Root
+// Healthcheck
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active (Render-Stable v9)");
+  res.send("✅ Moggumung WA Backend Active (Render-Stable Version)");
 });
 
 // =============================
-// 🕒 KeepAlive
+// 🕒 KEEPALIVE
 // =============================
 const KEEPALIVE_URL = process.env.KEEPALIVE_URL || "https://mgmwa.onrender.com";
 setInterval(async () => {
@@ -313,7 +275,7 @@ setInterval(async () => {
 }, 5 * 60 * 1000);
 
 // =============================
-// 🚀 Start Server
+// 🚀 START SERVER
 // =============================
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, "0.0.0.0", () => {
