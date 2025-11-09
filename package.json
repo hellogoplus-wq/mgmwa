@@ -1,7 +1,7 @@
 {
   "name": "mgmwa",
   "version": "1.0.0",
-  "description": "Moggumung WhatsApp Dashboard Backend",
+  "description": "Moggumung WhatsApp Backend (Render-Stable)",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -15,5 +15,8 @@
     "socket.io": "^4.7.2",
     "whatsapp-web.js": "^1.24.0",
     "puppeteer": "^23.0.2"
+  },
+  "engines": {
+    "node": "18.x"
   }
 }
