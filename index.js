@@ -70,11 +70,12 @@ io.on("connection", (socket) => {
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
-  // ✅ ambil Chromium bawaan Puppeteer (Render compatible)
+  // ✅ Ambil Chromium bawaan Puppeteer (Render compatible fix)
   const browserFetcher = puppeteer.createBrowserFetcher();
-  const revisionInfo = await browserFetcher.download(
-    puppeteer._preferredRevision || "119.0.6045.105"
-  );
+  const revision = puppeteer._preferredRevision || "1195492"; // versi stabil
+  console.log("🌐 Chromium revision:", revision);
+
+  const revisionInfo = await browserFetcher.download(revision);
   const chromiumPath = revisionInfo.executablePath;
   console.log("🧭 Chromium path:", chromiumPath);
 
