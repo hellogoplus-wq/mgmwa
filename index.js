@@ -1,5 +1,6 @@
 // =============================
-// 🚀 Moggumung WA Backend (Stable & Render-Optimized)
+// 🚀 Moggumung WA Backend (Final Stable Version)
+// with Auto-Reconnect + KeepAlive Ping
 // =============================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -7,6 +8,7 @@ const qrcode = require("qrcode");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const axios = require("axios");
 
 const app = express();
 app.use(
@@ -35,13 +37,13 @@ const io = new Server(server, {
 // 💬 Clients Map
 // =============================
 let clients = {};
+const reconnectDelay = 10000; // 10 detik
 
 // =============================
-// 🔌 Socket Connection (Realtime Dashboard)
+// 🔌 Socket Connection
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
-
   socket.emit("serverStatus", { connected: true, time: new Date() });
 
   const heartbeat = setInterval(() => {
@@ -55,14 +57,9 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 📱 Add WhatsApp Number
+// 📱 Create / Reconnect WhatsApp Session
 // =============================
-app.get("/add-number/:id", async (req, res) => {
-  const id = req.params.id;
-  if (clients[id]) {
-    return res.json({ message: "Client already exists" });
-  }
-
+async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
 
   const client = new Client({
@@ -88,14 +85,12 @@ app.get("/add-number/:id", async (req, res) => {
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
-  // === QR Event ===
   client.on("qr", async (qr) => {
     const qrImage = await qrcode.toDataURL(qr);
     io.emit("qr", { id, qr: qrImage });
     console.log(`📲 QR untuk ${id} dikirim ke dashboard`);
   });
 
-  // === Ready Event ===
   client.on("ready", async () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
@@ -110,36 +105,47 @@ app.get("/add-number/:id", async (req, res) => {
     console.log(`✅ ${id} connected (${info.pushname || "No name"})`);
   });
 
-  // === Disconnected Event ===
   client.on("disconnected", (reason) => {
+    console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     clients[id].last_seen = new Date();
-    io.emit("status", {
-      id,
-      status: "disconnected",
-      last_seen: clients[id].last_seen,
-    });
-    console.log(`⚠️ ${id} disconnected (${reason})`);
+    io.emit("status", { id, status: "disconnected" });
+
+    // 🔁 Auto-reconnect
+    setTimeout(() => {
+      console.log(`🔄 Mencoba reconnect client ${id}...`);
+      createClient(id);
+    }, reconnectDelay);
   });
 
-  // === Incoming Message Event ===
   client.on("message", (msg) => {
     clients[id].last_seen = new Date();
     io.emit("message", { id, from: msg.from, body: msg.body });
   });
 
-  // === Initialize Client ===
   try {
     await client.initialize();
-    res.json({ message: `Client ${id} sedang login` });
   } catch (err) {
-    console.error("❌ Error initializing WA client:", err);
-    res.status(500).send({ error: "Failed to initialize client" });
+    console.error(`❌ Error initializing client ${id}:`, err.message);
   }
+}
+
+// =============================
+// 🧠 Route: Add New Number
+// =============================
+app.get("/add-number/:id", async (req, res) => {
+  const id = req.params.id;
+
+  if (clients[id] && clients[id].status === "connected") {
+    return res.json({ message: "Client already connected" });
+  }
+
+  createClient(id);
+  res.json({ message: `Client ${id} sedang login...` });
 });
 
 // =============================
-// ✉️ Send Message
+// ✉️ Route: Send Message
 // =============================
 app.post("/send", async (req, res) => {
   const { id, to, message } = req.body;
@@ -156,7 +162,7 @@ app.post("/send", async (req, res) => {
 });
 
 // =============================
-// 📊 Status
+// 📊 Route: Status
 // =============================
 app.get("/status", (req, res) => {
   const list = Object.keys(clients).map((id) => ({
@@ -168,11 +174,24 @@ app.get("/status", (req, res) => {
 });
 
 // =============================
-// 🧪 Test Endpoint
+// 🧪 Route: Healthcheck
 // =============================
 app.get("/", (req, res) => {
-  res.send("✅ Moggumung WA Backend Active & Connected");
+  res.send("✅ Moggumung WA Backend Active (Auto-Reconnect + KeepAlive)");
 });
+
+// =============================
+// 🕒 KeepAlive Ping (Prevent Render Sleep)
+// =============================
+const KEEPALIVE_URL = "https://mgmwa.onrender.com";
+setInterval(async () => {
+  try {
+    await axios.get(KEEPALIVE_URL);
+    console.log("💓 KeepAlive ping sent to", KEEPALIVE_URL);
+  } catch (err) {
+    console.error("⚠️ KeepAlive failed:", err.message);
+  }
+}, 5 * 60 * 1000); // tiap 5 menit
 
 // =============================
 // 🚀 Start Server
@@ -180,5 +199,5 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
-  console.log(`🌐 Accessible via https://mgmwa.onrender.com`);
+  console.log(`🌐 Accessible via ${KEEPALIVE_URL}`);
 });
