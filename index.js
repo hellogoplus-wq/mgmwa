@@ -116,31 +116,43 @@ let clients = {};
 const reconnectDelay = 10000;
 
 // =============================
-// 🧩 DETECT CHROMIUM PATH (Render-safe)
+// 🧩 DETECT OR INSTALL CHROMIUM (Render Compatible)
 // =============================
+import { execSync } from "child_process";
+import fs from "fs";
+import path from "path";
+
 async function detectChromiumPath() {
   try {
-    const path = puppeteer.executablePath();
-    if (fs.existsSync(path)) {
-      console.log("✅ Chromium ditemukan:", path);
-      return path;
+    const defaultPath = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+    if (fs.existsSync(defaultPath)) {
+      console.log("✅ Chromium ditemukan:", defaultPath);
+      return defaultPath;
+    }
+
+    console.warn("⚠️ Chromium belum ada, mencoba install ke /tmp/chromium-cache...");
+
+    // Pastikan folder cache ada
+    fs.mkdirSync("/tmp/chromium-cache", { recursive: true });
+
+    // Jalankan perintah install browser via Puppeteer
+    console.log("⬇️ Mendownload Chromium versi ringan...");
+    execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
+
+    // Cari file executable hasil install
+    const chromePath = "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
+    if (fs.existsSync(chromePath)) {
+      console.log("✅ Chromium berhasil diinstall:", chromePath);
+      return chromePath;
     } else {
-      console.warn("⚠️ Path tidak valid, mencoba fallback manual...");
-      const fallback =
-        "/tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
-      if (fs.existsSync(fallback)) {
-        console.log("✅ Fallback Chromium ditemukan:", fallback);
-        return fallback;
-      } else {
-        console.error("❌ Tidak ada Chromium ditemukan.");
-        throw new Error("Chromium not found");
-      }
+      throw new Error("❌ Chromium tidak ditemukan setelah install");
     }
   } catch (err) {
-    console.error("⚠️ puppeteer.executablePath() gagal:", err.message);
+    console.error("❌ detectChromiumPath() gagal:", err.message);
     throw err;
   }
 }
+
 
 // =============================
 // 📱 CREATE CLIENT
