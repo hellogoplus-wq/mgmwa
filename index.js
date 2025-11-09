@@ -69,15 +69,27 @@ const io = new Server(server, {
 });
 
 // =============================
-// 🔌 SOCKET.IO HANDLER
+// 🔌 SOCKET.IO CONNECTION FIX (Render + Browser Sync)
 // =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io:", socket.id);
+
+  // 🔥 Kirim status langsung setelah konek
   socket.emit("serverStatus", { connected: true, time: new Date() });
 
+  // Debug event (biar tahu koneksi aktif di browser console)
+  socket.emit("welcome", { message: "Hello dashboard, Socket connected!" });
+
+  // 🫀 Heartbeat tiap 5 detik
   const heartbeat = setInterval(() => {
     socket.emit("heartbeat", { time: new Date().toISOString() });
   }, 5000);
+
+  // Listener untuk debug dari browser
+  socket.on("pingServer", () => {
+    console.log(`📡 Ping diterima dari dashboard (${socket.id})`);
+    socket.emit("pongClient", { time: new Date().toISOString() });
+  });
 
   socket.on("disconnect", (reason) => {
     console.log(`❌ Dashboard disconnected (${reason})`);
@@ -85,9 +97,18 @@ io.on("connection", (socket) => {
   });
 });
 
-// Manual handshake check
-app.get("/socket.io/", (req, res) => {
-  res.send("🧠 Socket.io endpoint is alive");
+// 🔍 Endpoint manual untuk test koneksi
+app.get("/socket-test", (req, res) => {
+  res.json({ socket: "ready", time: new Date().toISOString() });
+});
+
+// ✅ Health endpoint
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    socketStatus: io.engine.clientsCount + " connected clients",
+    time: new Date().toISOString(),
+  });
 });
 
 // =============================
