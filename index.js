@@ -73,18 +73,32 @@ async function detectChromiumPath() {
   try {
     const chromePath = puppeteer.executablePath();
     console.log("🧭 Chromium internal Puppeteer ditemukan:", chromePath);
-    return chromePath;
+    if (fs.existsSync(chromePath)) return chromePath;
   } catch (err) {
-    console.warn("⚠️ Puppeteer belum mendownload Chrome, fallback manual");
-    const candidate = "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome";
-    if (fs.existsSync(candidate)) {
-      console.log("✅ Chromium ditemukan di cache:", candidate);
-      return candidate;
-    }
-    throw new Error("❌ Tidak ada Chromium ditemukan. Pastikan build sudah menjalankan install.js");
+    console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
   }
-}
 
+  // 🧩 Cek lokasi umum hasil download di Render
+  const candidatePaths = [
+    "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome",
+    "/opt/render/.cache/puppeteer/chrome/linux-*/chrome",
+  ];
+
+  for (const pattern of candidatePaths) {
+    const match = fs
+      .readdirSync("/opt/render/.cache/puppeteer/chrome", { withFileTypes: true })
+      .find((dir) => dir.isDirectory());
+    if (match) {
+      const chromePath = `/opt/render/.cache/puppeteer/chrome/${match.name}/chrome-linux64/chrome`;
+      if (fs.existsSync(chromePath)) {
+        console.log("✅ Chromium ditemukan di cache:", chromePath);
+        return chromePath;
+      }
+    }
+  }
+
+  throw new Error("❌ Tidak ada Chromium ditemukan. Pastikan build menjalankan 'npx puppeteer browsers install chrome'");
+}
 
 
 // =============================
