@@ -9,7 +9,7 @@ const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
 const axios = require("axios");
-const puppeteer = require("puppeteer"); // 🧩 penting! bukan puppeteer-core
+const puppeteer = require("puppeteer"); // ✅ pakai full puppeteer, bukan core
 
 const app = express();
 
@@ -89,19 +89,21 @@ async function createClient(id) {
         "--disable-extensions",
         "--disable-background-timer-throttling",
         "--disable-renderer-backgrounding",
-        "--disable-backgrounding-occluded-windows"
+        "--disable-backgrounding-occluded-windows",
       ],
     },
   });
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
+  // 🔳 QR Code event
   client.on("qr", async (qr) => {
     const qrImage = await qrcode.toDataURL(qr);
     io.emit("qr", { id, qr: qrImage });
     console.log(`📲 QR untuk ${id} dikirim ke dashboard`);
   });
 
+  // ✅ Ready event
   client.on("ready", () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
@@ -109,37 +111,26 @@ async function createClient(id) {
     console.log(`✅ ${id} connected`);
   });
 
+  // ⚠️ Disconnected event
   client.on("disconnected", (reason) => {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
     io.emit("status", { id, status: "disconnected" });
-    setTimeout(() => createClient(id), 10000);
-  });
 
-  client.on("message", (msg) => {
-    io.emit("message", { id, from: msg.from, body: msg.body });
-  });
-
-  try {
-    await client.initialize();
-  } catch (err) {
-    console.error(`❌ Error initializing client ${id}:`, err.message);
-  }
-}
-
-
-    // 🔁 Auto-reconnect
+    // 🔁 Auto reconnect
     setTimeout(() => {
       console.log(`🔄 Mencoba reconnect client ${id}...`);
       createClient(id);
     }, reconnectDelay);
   });
 
+  // 💬 Pesan diterima
   client.on("message", (msg) => {
     clients[id].last_seen = new Date();
     io.emit("message", { id, from: msg.from, body: msg.body });
   });
 
+  // 🚀 Inisialisasi WA Client
   try {
     await client.initialize();
   } catch (err) {
