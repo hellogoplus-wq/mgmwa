@@ -71,28 +71,20 @@ io.on("connection", (socket) => {
 // =============================
 async function detectChromiumPath() {
   try {
-    const path = puppeteer.executablePath();
-    console.log("🧭 Chromium bawaan Puppeteer:", path);
-    return path;
+    const chromePath = puppeteer.executablePath();
+    console.log("🧭 Chromium internal Puppeteer ditemukan:", chromePath);
+    return chromePath;
   } catch (err) {
-    console.warn("⚠️ Tidak bisa deteksi Puppeteer path, fallback manual");
-    // Coba beberapa kemungkinan lokasi Chromium di Render
-    const candidates = [
-      "/usr/bin/chromium",
-      "/usr/bin/chromium-browser",
-      "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome",
-    ];
-
-    for (const p of candidates) {
-      if (fs.existsSync(p)) {
-        console.log("✅ Chromium ditemukan:", p);
-        return p;
-      }
+    console.warn("⚠️ Puppeteer belum mendownload Chrome, fallback manual");
+    const candidate = "/opt/render/.cache/puppeteer/chrome/linux-*/chrome-linux64/chrome";
+    if (fs.existsSync(candidate)) {
+      console.log("✅ Chromium ditemukan di cache:", candidate);
+      return candidate;
     }
-
-    throw new Error("❌ Tidak ada Chromium ditemukan di sistem");
+    throw new Error("❌ Tidak ada Chromium ditemukan. Pastikan build sudah menjalankan install.js");
   }
 }
+
 
 
 // =============================
