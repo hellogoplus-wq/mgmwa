@@ -14,9 +14,13 @@ services:
 
       # ⚙️ Puppeteer / Chromium Settings
       - key: PUPPETEER_SKIP_DOWNLOAD
-        value: "true"
+        value: "true"        # biar puppeteer tidak download chrome
       - key: PUPPETEER_EXECUTABLE_PATH
-        value: /usr/bin/chromium
+        value: /opt/render/.cache/puppeteer/chrome/linux-121.0.6167.85/chrome-linux64/chrome
+
+      # 💡 Jika PUPPETEER_EXECUTABLE_PATH tidak ada, backend otomatis pakai chrome-aws-lambda
+      - key: AWS_EXECUTION_ENV
+        value: render-env
 
       # 🩵 Basic Environment Config
       - key: PORT
