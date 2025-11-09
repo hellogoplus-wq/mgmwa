@@ -70,28 +70,23 @@ io.on("connection", (socket) => {
 // 🧩 Smart Chromium Detector + Auto Downloader
 // =============================
 // =============================
-// 🧩 Stable Puppeteer Path Fix for Render
+// 🧩 Stable Puppeteer Path Fix for Render (Final)
 // =============================
 async function detectChromiumPath() {
-  const chromeEnv = "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome";
-  if (fs.existsSync(chromeEnv)) {
-    console.log("✅ Chromium ditemukan (Render cache):", chromeEnv);
-    return chromeEnv;
-  }
-  // lanjut fallback ke /tmp jika tidak ditemukan
+  const fs = require("fs");
+  const path = require("path");
+  const { execSync } = require("child_process");
 
-
-  // Tempat stabil di container Render
   const baseDir = "/tmp/chromium-cache";
   const chromeRoot = path.join(baseDir, "chrome");
 
-  // Pastikan folder ada
+  // Buat folder cache Puppeteer di /tmp
   if (!fs.existsSync(baseDir)) {
     console.log("📁 Membuat folder cache Puppeteer di:", baseDir);
     fs.mkdirSync(baseDir, { recursive: true });
   }
 
-  // Coba gunakan bawaan Puppeteer dulu
+  // Coba jalur Chromium bawaan Puppeteer
   try {
     const chromePath = puppeteer.executablePath();
     if (fs.existsSync(chromePath)) {
@@ -104,7 +99,7 @@ async function detectChromiumPath() {
     console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
   }
 
-  // Download otomatis bila belum ada
+  // Install Chromium otomatis jika belum ada
   console.log("⬇️ Memastikan Chromium sudah ada di", baseDir);
   try {
     execSync(`npx puppeteer browsers install chrome --path ${baseDir}`, {
@@ -114,11 +109,16 @@ async function detectChromiumPath() {
     console.error("❌ Gagal mendownload Chromium otomatis:", err.message);
   }
 
-  // Ambil versi terbaru dari cache
+  // Cari versi Chrome yang sudah di-download
   try {
     const dirs = fs.readdirSync(chromeRoot, { withFileTypes: true });
     const latest = dirs.sort((a, b) => (a.name > b.name ? -1 : 1))[0];
-    const chromeCandidate = path.join(chromeRoot, latest.name, "chrome-linux64", "chrome");
+    const chromeCandidate = path.join(
+      chromeRoot,
+      latest.name,
+      "chrome-linux64",
+      "chrome"
+    );
     if (fs.existsSync(chromeCandidate)) {
       console.log("✅ Chromium ditemukan:", chromeCandidate);
       return chromeCandidate;
