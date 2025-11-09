@@ -6,11 +6,10 @@ services:
     buildCommand: |
       echo "🏗️ Installing dependencies..."
       npm install
-      echo "⬇️ Installing Chromium for Puppeteer..."
+      echo "⬇️ Preinstalling Chromium for Puppeteer..."
       npx puppeteer browsers install chrome
     startCommand: npm start
     autoDeploy: true
-
     envVars:
       - key: NODE_VERSION
         value: 18
@@ -20,5 +19,4 @@ services:
         value: "true"
       - key: KEEPALIVE_URL
         value: https://mgmwa.onrender.com
-
     healthCheckPath: /
