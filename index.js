@@ -1,5 +1,5 @@
 // =============================
-// 🚀 Moggumung WA Backend (Final)
+// 🚀 Moggumung WA Backend (Final Fixed)
 // Compatible with Render + Hostinger dashboard
 // =============================
 
@@ -15,7 +15,7 @@ const app = express();
 // ✅ CORS Setup - Allow Hostinger dashboard access
 app.use(
   cors({
-    origin: ["https://chat.moggumung.id"], // frontend domain kamu
+    origin: ["https://chat.moggumung.id"], // domain frontend kamu
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -23,7 +23,7 @@ app.use(
 
 app.use(express.json());
 
-// ✅ Create HTTP & WebSocket server
+// ✅ Create HTTP + WebSocket Server
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -32,11 +32,10 @@ const io = new Server(server, {
     credentials: true,
   },
   path: "/socket.io/",
-});
-  transports: ["websocket", "polling"], // biar Render support fallback
-  allowEIO3: true,                      // backward compatibility
-  pingTimeout: 30000,                   // tunggu 30 detik sebelum disconnect
-  pingInterval: 10000,                  // kirim heartbeat tiap 10 detik
+  transports: ["websocket", "polling"], // support fallback
+  allowEIO3: true, // backward compatibility
+  pingTimeout: 30000, // timeout sebelum disconnect
+  pingInterval: 10000, // heartbeat tiap 10 detik
 });
 
 // =============================
@@ -56,7 +55,7 @@ io.on("connection", (socket) => {
     console.log(`❌ Dashboard disconnected (${reason})`);
   });
 
-  // manual heartbeat signal ke client setiap 5 detik
+  // kirim heartbeat tiap 5 detik ke dashboard
   const heartbeat = setInterval(() => {
     socket.emit("heartbeat", { time: new Date().toISOString() });
   }, 5000);
