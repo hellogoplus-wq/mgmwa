@@ -47,7 +47,7 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // =============================
-// 🧠 HTTP + SOCKET SERVER
+// 🧠 HTTP + SOCKET SERVER (RENDER FIXED VERSION)
 // =============================
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -62,10 +62,14 @@ const io = new Server(server, {
     credentials: true,
   },
   transports: ["websocket", "polling"],
-  path: "/socket.io/",
   allowEIO3: true,
   pingTimeout: 60000,
   pingInterval: 25000,
+});
+
+// ✅ Tambahkan endpoint manual untuk Socket.io handshake
+app.get("/socket.io/", (req, res) => {
+  res.send("🧠 Socket.io endpoint is alive");
 });
 
 // =============================
