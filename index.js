@@ -35,12 +35,9 @@ app.options("*", cors());
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
-  res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
   res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
@@ -50,20 +47,20 @@ app.use(express.json());
 // =============================
 // 🧠 HTTP + SOCKET SERVER (Render Stable Fix)
 // =============================
-const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: [
       "https://chat.moggumung.id",
-      "http://localhost:5500",
       "https://mgmwa.onrender.com",
+      "http://localhost:5500"
     ],
-    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["polling"], // ✅ FORCE POLLING MODE untuk Render Free
-  pingTimeout: 30000,      // pingTimeout dipendekkan agar reconnect cepat
-  pingInterval: 10000,     // pingInterval lebih sering biar dianggap aktif
+  transports: ["polling"],  // Render safe
+  allowEIO3: true,          // ✅ fix kompatibilitas Socket.io v4 <-> v2
+  pingTimeout: 30000,
+  pingInterval: 10000,
 });
 
 // =============================
