@@ -2,9 +2,9 @@
   "name": "mgmwa",
   "version": "1.0.0",
   "description": "Moggumung WhatsApp Backend (Render-Stable)",
-  "main": "app.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node app.js",
+    "start": "node index.js",
     "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
