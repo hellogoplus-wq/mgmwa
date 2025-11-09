@@ -149,21 +149,26 @@ async function createClient(id) {
     return;
   }
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ clientId: id }),
-    puppeteer: {
-      headless: true,
-      executablePath: chromiumPath,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--single-process",
-        "--no-zygote",
-      ],
-    },
-  });
+ const client = new Client({
+  authStrategy: new LocalAuth({ clientId: id }),
+  puppeteer: {
+    headless: true,
+    executablePath: chromiumPath,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-web-security",
+      "--disable-features=site-per-process",
+      "--ignore-certificate-errors",
+      "--single-process",
+      "--no-zygote",
+      "--window-size=1920,1080",
+    ],
+  },
+});
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
