@@ -21,12 +21,20 @@ const app = express();
 // =============================
 app.use(
   cors({
-    origin: ["https://chat.moggumung.id"],
-    methods: ["GET", "POST", "DELETE"],
+    origin: [
+      "https://chat.moggumung.id",
+      "http://localhost:5500", // untuk testing lokal
+      "http://127.0.0.1:5500",
+      "https://mgmwa.onrender.com"
+    ],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
 );
-app.use(express.json());
+
+// ✅ Tambahkan preflight handler untuk OPTIONS
+app.options("*", cors());
 
 // =============================
 // 🧠 HTTP + WebSocket Server
