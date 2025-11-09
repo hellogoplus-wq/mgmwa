@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Moggumung WhatsApp Backend for Render",
   "main": "index.js",
-  "type": "module",
   "scripts": {
     "start": "node index.js",
     "postinstall": "npx puppeteer browsers install chrome"
