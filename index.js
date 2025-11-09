@@ -202,6 +202,51 @@ app.get("/", (req, res) => {
 });
 
 // =============================
+// 🚪 Logout Device
+// =============================
+app.get("/logout/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!clients[id]) return res.status(404).json({ error: "Client not found" });
+
+  try {
+    await clients[id].client.logout();
+    clients[id].status = "logged_out";
+    io.emit("status", { id, status: "logged_out" });
+    console.log(`🚪 ${id} logged out`);
+    res.json({ message: `${id} logged out successfully` });
+  } catch (err) {
+    console.error("❌ Logout failed:", err.message);
+    res.status(500).json({ error: "Logout failed" });
+  }
+});
+
+// =============================
+// 🗑️ Delete Device (Clear Session)
+// =============================
+app.delete("/delete/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!clients[id]) return res.status(404).json({ error: "Client not found" });
+
+  try {
+    await clients[id].client.destroy();
+    delete clients[id];
+
+    // Hapus folder session dari LocalAuth
+    const fs = require("fs");
+    const path = require("path");
+    const sessionPath = path.join(__dirname, `.wwebjs_auth/session-${id}`);
+    if (fs.existsSync(sessionPath)) fs.rmSync(sessionPath, { recursive: true, force: true });
+
+    io.emit("status", { id, status: "deleted" });
+    console.log(`🗑️ Session ${id} deleted`);
+    res.json({ message: `${id} session deleted successfully` });
+  } catch (err) {
+    console.error("❌ Delete failed:", err.message);
+    res.status(500).json({ error: "Delete failed" });
+  }
+});
+
+// =============================
 // 🕒 KeepAlive Ping
 // =============================
 const KEEPALIVE_URL = process.env.KEEPALIVE_URL || "https://mgmwa.onrender.com";
