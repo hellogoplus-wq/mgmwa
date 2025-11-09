@@ -67,42 +67,49 @@ io.on("connection", (socket) => {
 });
 
 // =============================
-// 🧩 Detect Chromium Path (Auto + Fallback Safe)
-// =============================
-// =============================
-// 🧩 Detect or Auto-Install Chromium
+// 🧩 Smart Chromium Detector + Auto Downloader
 // =============================
 async function detectChromiumPath() {
-  const puppeteerCache = "/opt/render/.cache/puppeteer/chrome";
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  const cacheDir = process.env.PUPPETEER_CACHE_DIR || "/opt/render/.cache/puppeteer";
+  const { execSync } = require("child_process");
+
+  // 1️⃣ Coba dari env variable
+  if (envPath && fs.existsSync(envPath)) {
+    console.log("🧭 Chromium dari ENV ditemukan:", envPath);
+    return envPath;
+  }
+
+  // 2️⃣ Coba bawaan Puppeteer
   try {
     const chromePath = puppeteer.executablePath();
     if (fs.existsSync(chromePath)) {
       console.log("🧭 Chromium internal Puppeteer ditemukan:", chromePath);
       return chromePath;
     }
-    console.warn("⚠️ Path terdeteksi tapi Chrome tidak ada, mencoba fallback...");
   } catch (err) {
     console.warn("⚠️ puppeteer.executablePath() gagal:", err.message);
   }
 
-  // Jika cache folder tidak ada → install manual
-  if (!fs.existsSync(puppeteerCache)) {
-    console.log("⬇️ Puppeteer cache belum ada, mendownload Chromium...");
-    const { execSync } = require("child_process");
-    try {
-      execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
-      console.log("✅ Chromium berhasil di-download!");
-    } catch (err) {
-      console.error("❌ Gagal mendownload Chromium secara otomatis:", err.message);
-    }
+  // 3️⃣ Kalau folder cache belum ada → download dulu
+  if (!fs.existsSync(cacheDir)) {
+    console.log("⬇️ Folder cache Puppeteer belum ada, membuat...");
+    fs.mkdirSync(cacheDir, { recursive: true });
   }
 
-  // Coba cari Chrome hasil download
+  console.log("⬇️ Mencoba download Chromium secara otomatis...");
   try {
-    const dirs = fs.readdirSync(puppeteerCache, { withFileTypes: true });
+    execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
+  } catch (err) {
+    console.error("❌ Gagal download Chromium otomatis:", err.message);
+  }
+
+  // 4️⃣ Coba cari hasil download
+  try {
+    const dirs = fs.readdirSync(`${cacheDir}/chrome`, { withFileTypes: true });
     for (const d of dirs) {
       if (d.isDirectory()) {
-        const chromeCandidate = `${puppeteerCache}/${d.name}/chrome-linux64/chrome`;
+        const chromeCandidate = `${cacheDir}/chrome/${d.name}/chrome-linux64/chrome`;
         if (fs.existsSync(chromeCandidate)) {
           console.log("✅ Chromium ditemukan:", chromeCandidate);
           return chromeCandidate;
@@ -113,7 +120,7 @@ async function detectChromiumPath() {
     console.error("❌ Gagal membaca cache Puppeteer:", err.message);
   }
 
-  throw new Error("❌ Tidak ada Chromium ditemukan, dan download gagal.");
+  throw new Error("❌ Chromium tidak ditemukan dan download gagal.");
 }
 
 
