@@ -12,7 +12,7 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // kamu bisa ganti dengan domain Hostinger nanti
+    origin: ["https://chat.moggumung.id"], // tambahkan domain kamu
     methods: ["GET", "POST"]
   }
 });
