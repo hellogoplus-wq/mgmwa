@@ -122,6 +122,7 @@ const client = new Client({
 });
 
 
+
       clients[sessionId] = client;
 
       client.on("qr", async (qr) => {
