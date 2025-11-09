@@ -67,19 +67,18 @@ io.on("connection", (socket) => {
 // =============================
 // 📱 Create / Reconnect WhatsApp Session
 // =============================
+const chromiumPath =
+  process.env.PUPPETEER_EXECUTABLE_PATH ||
+  "/usr/bin/google-chrome-stable";
+
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-
-  // ✅ Gunakan Chrome binary dari Puppeteer
-  const chromePath = await puppeteer
-    .executablePath()
-    .catch(() => "/usr/bin/google-chrome-stable");
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
     puppeteer: {
       headless: true,
-      executablePath: chromePath,
+      executablePath: chromiumPath,
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -90,8 +89,7 @@ async function createClient(id) {
         "--disable-extensions",
         "--disable-background-timer-throttling",
         "--disable-renderer-backgrounding",
-        "--disable-backgrounding-occluded-windows",
-        "--window-size=800,600",
+        "--disable-backgrounding-occluded-windows"
       ],
     },
   });
@@ -104,23 +102,31 @@ async function createClient(id) {
     console.log(`📲 QR untuk ${id} dikirim ke dashboard`);
   });
 
-  client.on("ready", async () => {
+  client.on("ready", () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
-    io.emit("status", {
-      id,
-      status: "connected",
-      last_seen: clients[id].last_seen,
-    });
-    const info = client.info || {};
-    console.log(`✅ ${id} connected (${info.pushname || "No name"})`);
+    io.emit("status", { id, status: "connected" });
+    console.log(`✅ ${id} connected`);
   });
 
   client.on("disconnected", (reason) => {
     console.log(`⚠️ ${id} disconnected (${reason})`);
     clients[id].status = "disconnected";
-    clients[id].last_seen = new Date();
     io.emit("status", { id, status: "disconnected" });
+    setTimeout(() => createClient(id), 10000);
+  });
+
+  client.on("message", (msg) => {
+    io.emit("message", { id, from: msg.from, body: msg.body });
+  });
+
+  try {
+    await client.initialize();
+  } catch (err) {
+    console.error(`❌ Error initializing client ${id}:`, err.message);
+  }
+}
+
 
     // 🔁 Auto-reconnect
     setTimeout(() => {
