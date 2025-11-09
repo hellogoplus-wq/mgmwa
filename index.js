@@ -68,25 +68,17 @@ io.on("connection", (socket) => {
 // =============================
 // 🧩 Detect Chromium Path (Universal)
 // =============================
+const puppeteer = require("puppeteer");
+
 async function detectChromiumPath() {
-  const candidates = [
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/google-chrome-stable"
-  ];
-
-  for (const path of candidates) {
-    if (path && fs.existsSync(path)) {
-      console.log("🧭 Chromium found:", path);
-      return path;
-    }
+  try {
+    const path = puppeteer.executablePath();
+    console.log("🧭 Chromium found:", path);
+    return path;
+  } catch (err) {
+    console.error("⚠️ Gagal mendeteksi Chromium path:", err.message);
+    return "/usr/bin/chromium-browser"; // fallback manual
   }
-
-  // fallback default Puppeteer
-  const chromiumPath = puppeteer.executablePath();
-  console.log("🧩 Using Puppeteer internal Chromium:", chromiumPath);
-  return chromiumPath;
 }
 
 // =============================
@@ -97,25 +89,22 @@ async function createClient(id) {
 
   const chromiumPath = await detectChromiumPath();
 
-  const client = new Client({
-    authStrategy: new LocalAuth({ clientId: id }),
-    puppeteer: {
-      headless: true,
-      executablePath: chromiumPath,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--single-process",
-        "--no-zygote",
-        "--disable-extensions",
-        "--disable-background-timer-throttling",
-        "--disable-renderer-backgrounding",
-        "--disable-backgrounding-occluded-windows",
-      ],
-    },
-  });
+ const client = new Client({
+  authStrategy: new LocalAuth({ clientId: id }),
+  puppeteer: {
+    headless: true,
+    executablePath: await detectChromiumPath(),
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--single-process",
+      "--no-zygote"
+    ],
+  },
+});
+
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
