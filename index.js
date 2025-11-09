@@ -1,3 +1,8 @@
+// =============================
+// 🚀 Moggumung WA Backend (Final)
+// Compatible with Render + Hostinger dashboard
+// =============================
+
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode");
@@ -7,10 +12,10 @@ const { Server } = require("socket.io");
 
 const app = express();
 
-// ✅ Perbaikan CORS — pastikan dashboard Hostinger diizinkan
+// ✅ CORS Setup - Allow Hostinger dashboard access
 app.use(
   cors({
-    origin: ["https://chat.moggumung.id"], // domain frontend kamu
+    origin: ["https://chat.moggumung.id"], // frontend domain kamu
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -18,7 +23,7 @@ app.use(
 
 app.use(express.json());
 
-// Buat HTTP + Socket.IO server
+// ✅ Create HTTP & WebSocket server
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -26,34 +31,54 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
+  transports: ["websocket", "polling"], // biar Render support fallback
+  allowEIO3: true,                      // backward compatibility
+  pingTimeout: 30000,                   // tunggu 30 detik sebelum disconnect
+  pingInterval: 10000,                  // kirim heartbeat tiap 10 detik
 });
 
-// Objek penyimpanan semua sesi WA aktif
+// =============================
+// 💬 WhatsApp Clients Storage
+// =============================
 let clients = {};
 
-// 🩵 Event: Dashboard pertama kali connect ke backend
+// =============================
+// 🔌 Dashboard Connection
+// =============================
 io.on("connection", (socket) => {
   console.log("🔌 Dashboard connected via Socket.io");
+
   socket.emit("serverStatus", { connected: true, time: new Date() });
 
-  socket.on("disconnect", () => {
-    console.log("❌ Dashboard disconnected");
+  socket.on("disconnect", (reason) => {
+    console.log(`❌ Dashboard disconnected (${reason})`);
   });
+
+  // manual heartbeat signal ke client setiap 5 detik
+  const heartbeat = setInterval(() => {
+    socket.emit("heartbeat", { time: new Date().toISOString() });
+  }, 5000);
+
+  socket.on("disconnect", () => clearInterval(heartbeat));
 });
 
-// 🫀 Kirim heartbeat tiap 5 detik ke semua dashboard (untuk panel monitor)
-setInterval(() => {
-  io.emit("heartbeat", { time: new Date().toISOString() });
-}, 5000);
-
-// ✅ Route: Tambah nomor baru (login QR)
+// =============================
+// 📱 Add WhatsApp Session
+// =============================
 app.get("/add-number/:id", async (req, res) => {
   const id = req.params.id;
-
   if (clients[id]) return res.send({ message: "Client already exists" });
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
+    puppeteer: {
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-gpu",
+        "--no-zygote",
+      ],
+    },
   });
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
@@ -67,15 +92,23 @@ app.get("/add-number/:id", async (req, res) => {
   client.on("ready", () => {
     clients[id].status = "connected";
     clients[id].last_seen = new Date();
-    io.emit("status", { id, status: "connected", last_seen: clients[id].last_seen });
+    io.emit("status", {
+      id,
+      status: "connected",
+      last_seen: clients[id].last_seen,
+    });
     console.log(`✅ ${id} connected`);
   });
 
-  client.on("disconnected", () => {
+  client.on("disconnected", (reason) => {
     clients[id].status = "disconnected";
     clients[id].last_seen = new Date();
-    io.emit("status", { id, status: "disconnected", last_seen: clients[id].last_seen });
-    console.log(`⚠️ ${id} disconnected`);
+    io.emit("status", {
+      id,
+      status: "disconnected",
+      last_seen: clients[id].last_seen,
+    });
+    console.log(`⚠️ ${id} disconnected (${reason})`);
   });
 
   client.on("message", (msg) => {
@@ -83,11 +116,18 @@ app.get("/add-number/:id", async (req, res) => {
     io.emit("message", { id, from: msg.from, body: msg.body });
   });
 
-  client.initialize();
-  res.send({ message: `Client ${id} sedang login` });
+  try {
+    await client.initialize();
+    res.send({ message: `Client ${id} sedang login` });
+  } catch (err) {
+    console.error("❌ Error initializing WA client:", err);
+    res.status(500).send({ error: "Failed to initialize client" });
+  }
 });
 
-// ✅ Route: Kirim pesan
+// =============================
+// ✉️ Send Message
+// =============================
 app.post("/send", async (req, res) => {
   const { id, to, message } = req.body;
   if (!clients[id]) return res.status(400).send({ error: "Client not found" });
@@ -102,7 +142,9 @@ app.post("/send", async (req, res) => {
   }
 });
 
-// ✅ Route: Ambil daftar status semua device
+// =============================
+// 📊 Device Status Endpoint
+// =============================
 app.get("/status", (req, res) => {
   const list = Object.keys(clients).map((id) => ({
     id,
@@ -112,12 +154,16 @@ app.get("/status", (req, res) => {
   res.send(list);
 });
 
-// ✅ Route tes backend
+// =============================
+// 🧪 Test Route
+// =============================
 app.get("/", (req, res) => {
   res.send("✅ Moggumung WA Backend Active");
 });
 
-// Jalankan server
+// =============================
+// 🚀 Start Server
+// =============================
 const PORT = process.env.PORT || 10000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 WA Backend aktif di port ${PORT}`);
