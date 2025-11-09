@@ -123,7 +123,14 @@ async function detectChromiumPath() {
 // =============================
 async function createClient(id) {
   console.log(`🧩 Membuat client baru: ${id}`);
-  const chromiumPath = await detectChromiumPath();
+
+  let chromiumPath;
+  try {
+    chromiumPath = await detectChromiumPath();
+  } catch (err) {
+    console.error(`❌ Chromium tidak bisa dijalankan untuk ${id}:`, err.message);
+    return; // stop, jangan lanjut inisialisasi client
+  }
 
   const client = new Client({
     authStrategy: new LocalAuth({ clientId: id }),
@@ -140,6 +147,7 @@ async function createClient(id) {
       ],
     },
   });
+
 
   clients[id] = { client, status: "connecting", last_seen: new Date() };
 
