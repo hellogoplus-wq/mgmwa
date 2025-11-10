@@ -1,6 +1,5 @@
 # =============================
-# 🚀 Moggumung WA Backend - Render Deployment
-# Stable for Puppeteer + Socket.io + CORS
+# 🚀 Moggumung WA Backend v6.2 (Render-Stable)
 # =============================
 
 services:
@@ -11,40 +10,39 @@ services:
 
     buildCommand: |
       echo "📦 Installing dependencies..."
-      npm install
-      echo "⬇️ Installing Chromium for Puppeteer..."
+      npm install --omit=dev
+      echo "⬇️ Installing Chromium via Puppeteer..."
       npx puppeteer browsers install chrome
       echo "✅ Build complete!"
 
-    startCommand: npm start
+    startCommand: node app.js
     autoDeploy: true
 
     envVars:
-      # 🧠 Node.js version
+      # 🧠 Node.js version (LTS & Puppeteer Compatible)
       - key: NODE_VERSION
         value: 18
 
       # ⚙️ Puppeteer configuration (Render-safe)
       - key: PUPPETEER_CACHE_DIR
-        value: /tmp/chromium-cache
+        value: /opt/render/.cache/puppeteer
       - key: PUPPETEER_EXECUTABLE_PATH
-        value: /tmp/chromium-cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome
+        value: /opt/render/.cache/puppeteer/chrome/linux-131.0.6778.204/chrome-linux64/chrome
       - key: PUPPETEER_SKIP_DOWNLOAD
         value: false
 
-      # 🌍 Basic environment
+      # 🌍 Environment & Timezone
       - key: PORT
         value: 10000
       - key: TZ
         value: Asia/Makassar
 
-      # 💓 Keepalive ping
+      # 💓 Keepalive ping endpoint
       - key: KEEPALIVE_URL
         value: https://mgmwa.onrender.com
 
-    # ✅ Health check endpoint
-    healthCheckPath: /health
+    # ✅ Health check (buat monitoring Render)
+    healthCheckPath: /
 
-    # ✅ Always use same working directory
+    # ✅ Pastikan selalu di root directory project
     rootDir: .
-
