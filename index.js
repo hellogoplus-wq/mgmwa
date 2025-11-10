@@ -1,5 +1,5 @@
 // ========================
-// 🚀 Moggumung WA Server v6 (Render-Stable Fix)
+// 🚀 Moggumung WA Server v6 (Hybrid Render-Stable)
 // ========================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -21,26 +21,27 @@ app.use(express.urlencoded({ extended: true }));
 // ==== CORS untuk dashboard ====
 app.use(
   cors({
-    origin: ["https://chat.moggumung.id", "http://localhost:3000"],
-    methods: ["GET", "POST"],
+    origin: ["https://chat.moggumung.id", "https://mgmwa.onrender.com", "http://localhost:3000"],
+    methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
   })
 );
 
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://chat.moggumung.id");
-  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Origin", req.headers.origin || "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept"
   );
+  if (req.method === "OPTIONS") return res.sendStatus(200);
   next();
 });
 
 // ==== Socket.IO ====
 const io = new Server(server, {
   cors: {
-    origin: ["https://chat.moggumung.id", "http://localhost:3000"],
+    origin: ["https://chat.moggumung.id", "https://mgmwa.onrender.com", "http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -85,74 +86,122 @@ function detectChromiumPath() {
 // ==== WA Clients Map ====
 const clients = {};
 
+// ==== SOCKET.IO HANDLER ====
 io.on("connection", (socket) => {
   console.log("🟢 Socket client connected:", socket.id);
 
-  // === Event: Buat session baru ===
+  // === Event: Buat session baru (dashboard modern) ===
   socket.on("create-session", async (sessionId) => {
     console.log(`⚙️ Membuat session baru: ${sessionId}`);
+    createClient(sessionId, socket);
+  });
+});
 
-    if (clients[sessionId]) {
-      socket.emit("status", "Session sudah aktif");
-      return;
-    }
+// ==== FUNCTION: CREATE CLIENT ====
+async function createClient(sessionId, socket = null) {
+  if (clients[sessionId]) {
+    console.log(`ℹ️ Client ${sessionId} sudah aktif`);
+    if (socket) socket.emit("status", { id: sessionId, status: "already_connected" });
+    return;
+  }
 
-    try {
-      const chromePath = await detectChromiumPath();
+  try {
+    const chromePath = await detectChromiumPath();
 
-      const client = new Client({
-        authStrategy: new LocalAuth({ clientId: sessionId }), // ✅ fix
-        puppeteer: {
-          headless: true,
-          executablePath: chromePath, // ✅ gunakan yang sudah terdeteksi
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-gpu",
-            "--disable-extensions",
-            "--disable-software-rasterizer",
-            "--single-process",
-            "--no-zygote",
-            "--window-size=1920,1080",
-          ],
-        },
-      });
+    const client = new Client({
+      authStrategy: new LocalAuth({ clientId: sessionId }),
+      puppeteer: {
+        headless: true,
+        executablePath: chromePath,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-gpu",
+          "--disable-extensions",
+          "--disable-software-rasterizer",
+          "--single-process",
+          "--no-zygote",
+          "--window-size=1920,1080",
+        ],
+      },
+    });
 
-      clients[sessionId] = client;
+    clients[sessionId] = { client, status: "connecting", last_seen: new Date() };
 
-      // === QR Code Event ===
-      client.on("qr", async (qr) => {
-        const qrData = await qrcode.toDataURL(qr);
-        console.log(`📱 QR Code dikirim untuk ${sessionId}`);
-        socket.emit("qr", { id: sessionId, src: qrData });
-      });
+    // === QR Code Event ===
+    client.on("qr", async (qr) => {
+      const qrData = await qrcode.toDataURL(qr);
+      console.log(`📲 QR Code dikirim untuk ${sessionId}`);
+      io.emit("qr", { id: sessionId, src: qrData }); // kirim ke semua dashboard
+      if (socket) socket.emit("qr", { id: sessionId, src: qrData });
+    });
 
-      // === Ready Event ===
-      client.on("ready", () => {
-        console.log(`✅ WhatsApp ${sessionId} siap digunakan`);
-        socket.emit("ready", sessionId);
-      });
+    // === Ready Event ===
+    client.on("ready", () => {
+      console.log(`✅ WhatsApp ${sessionId} siap digunakan`);
+      clients[sessionId].status = "connected";
+      clients[sessionId].last_seen = new Date();
+      io.emit("status", { id: sessionId, status: "connected" });
+    });
 
-      // === Disconnect Event ===
-      client.on("disconnected", () => {
-        console.log(`⚠️ WhatsApp ${sessionId} terputus`);
-        socket.emit("disconnected", sessionId);
-        delete clients[sessionId];
-      });
+    // === Disconnect Event ===
+    client.on("disconnected", () => {
+      console.log(`⚠️ WhatsApp ${sessionId} terputus`);
+      clients[sessionId].status = "disconnected";
+      clients[sessionId].last_seen = new Date();
+      io.emit("status", { id: sessionId, status: "disconnected" });
+      delete clients[sessionId];
+    });
 
-      await client.initialize();
-      console.log(`🚀 Client ${sessionId} initialized`);
-    } catch (e) {
-      console.error("❌ Error create-session:", e.message);
-      socket.emit("error", `Gagal membuat session: ${e.message}`);
-    }
+    await client.initialize();
+    console.log(`🚀 Client ${sessionId} initialized`);
+  } catch (e) {
+    console.error(`❌ Error create-client (${sessionId}):`, e.message);
+    if (socket) socket.emit("error", `Gagal membuat session: ${e.message}`);
+  }
+}
+
+// =============================
+// 🌐 ROUTES (Hybrid Support)
+// =============================
+
+// --- Kompatibel dengan dashboard Tailwind lama ---
+app.get("/add-number/:id", async (req, res) => {
+  const id = req.params.id;
+  if (!id) return res.status(400).json({ error: "ID tidak valid" });
+
+  console.log(`⚙️ [Legacy] Menambahkan session baru: ${id}`);
+  if (clients[id]) {
+    return res.json({ message: "Client sudah aktif", id });
+  }
+
+  createClient(id);
+  res.json({ message: `Client ${id} sedang login...`, id });
+});
+
+// --- List status semua session ---
+app.get("/status", (req, res) => {
+  const list = Object.keys(clients).map((id) => ({
+    id,
+    status: clients[id].status,
+    last_seen: clients[id].last_seen,
+  }));
+  res.json(list);
+});
+
+// --- Health check ---
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    clients: Object.keys(clients).length,
+    time: new Date().toISOString(),
   });
 });
 
 // ==== Root route ====
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "Moggumung WA Server v6 aktif" });
+  res.json({ status: "ok", message: "Moggumung WA Server v6 Hybrid aktif ✅" });
 });
 
 // ==== Start server ====
