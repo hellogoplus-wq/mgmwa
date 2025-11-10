@@ -111,20 +111,28 @@ async function createClient(sessionId, socket = null) {
     const client = new Client({
       authStrategy: new LocalAuth({ clientId: sessionId }),
       puppeteer: {
-        headless: true,
-        executablePath: chromePath,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-gpu",
-          "--disable-extensions",
-          "--disable-software-rasterizer",
-          "--single-process",
-          "--no-zygote",
-          "--window-size=1920,1080",
-        ],
-      },
+  headless: true,
+  executablePath: chromiumPath,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--disable-extensions",
+    "--disable-software-rasterizer",
+    "--disable-background-timer-throttling",
+    "--disable-renderer-backgrounding",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-infobars",
+    "--mute-audio",
+    "--no-zygote",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--disable-features=site-per-process,TranslateUI,BlinkGenPropertyTrees",
+    "--ignore-certificate-errors",
+    "--window-size=1024,768",
+  ],
+},
     });
 
     clients[sessionId] = { client, status: "connecting", last_seen: new Date() };
@@ -155,7 +163,8 @@ async function createClient(sessionId, socket = null) {
     });
 
     await client.initialize();
-    console.log(`🚀 Client ${sessionId} initialized`);
+await new Promise((r) => setTimeout(r, 3000));
+console.log(`🚀 Client ${id} initialized and ready for QR.`);
   } catch (e) {
     console.error(`❌ Error create-client (${sessionId}):`, e.message);
     if (socket) socket.emit("error", `Gagal membuat session: ${e.message}`);
