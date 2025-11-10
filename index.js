@@ -1,5 +1,5 @@
 // ========================
-// Moggumung WA Server v5
+// 🚀 Moggumung WA Server v6 (Render-Stable Fix)
 // ========================
 const express = require("express");
 const { Client, LocalAuth } = require("whatsapp-web.js");
@@ -10,8 +10,6 @@ const { Server } = require("socket.io");
 const axios = require("axios");
 const fs = require("fs");
 const { execSync } = require("child_process");
-const path = require("path");
-
 
 // ==== App setup ====
 const app = express();
@@ -20,7 +18,7 @@ const server = http.createServer(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ==== Fix: CORS untuk frontend dashboard ====
+// ==== CORS untuk dashboard ====
 app.use(
   cors({
     origin: ["https://chat.moggumung.id", "http://localhost:3000"],
@@ -29,7 +27,6 @@ app.use(
   })
 );
 
-// ==== Manual header tambahan (backup) ====
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "https://chat.moggumung.id");
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -40,7 +37,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ==== Socket.IO dengan CORS ====
+// ==== Socket.IO ====
 const io = new Server(server, {
   cors: {
     origin: ["https://chat.moggumung.id", "http://localhost:3000"],
@@ -51,7 +48,7 @@ const io = new Server(server, {
   pingInterval: 25000,
 });
 
-// ==== Chromium Path untuk Render ====
+// ==== Chromium Path Detection ====
 function detectChromiumPath() {
   const knownPaths = [
     "/usr/bin/chromium-browser",
@@ -68,10 +65,11 @@ function detectChromiumPath() {
     }
   }
 
-  console.warn("⚠️ Chromium system tidak ditemukan, fallback ke Puppeteer install...");
+  console.warn("⚠️ Chromium system tidak ditemukan, mencoba install Puppeteer...");
   try {
     execSync("npx puppeteer browsers install chrome", { stdio: "inherit" });
-    const path = "/opt/render/.cache/puppeteer/chrome/linux-131.0.6778.204/chrome-linux64/chrome";
+    const path =
+      "/opt/render/.cache/puppeteer/chrome/linux-131.0.6778.204/chrome-linux64/chrome";
     if (fs.existsSync(path)) {
       console.log("✅ Chromium fallback berhasil:", path);
       return path;
@@ -84,13 +82,13 @@ function detectChromiumPath() {
   }
 }
 
-
-// ==== WhatsApp Clients ====
+// ==== WA Clients Map ====
 const clients = {};
 
 io.on("connection", (socket) => {
   console.log("🟢 Socket client connected:", socket.id);
 
+  // === Event: Buat session baru ===
   socket.on("create-session", async (sessionId) => {
     console.log(`⚙️ Membuat session baru: ${sessionId}`);
 
@@ -102,40 +100,41 @@ io.on("connection", (socket) => {
     try {
       const chromePath = await detectChromiumPath();
 
-const client = new Client({
-  authStrategy: new LocalAuth({ clientId: id }),
-  puppeteer: {
-    headless: true,
-    executablePath: detectChromiumPath(),
-    args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-      "--disable-gpu",
-      "--disable-extensions",
-      "--disable-software-rasterizer",
-      "--single-process",
-      "--no-zygote",
-      "--window-size=1920,1080",
-    ],
-  },
-});
-
-
+      const client = new Client({
+        authStrategy: new LocalAuth({ clientId: sessionId }), // ✅ fix
+        puppeteer: {
+          headless: true,
+          executablePath: chromePath, // ✅ gunakan yang sudah terdeteksi
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--disable-extensions",
+            "--disable-software-rasterizer",
+            "--single-process",
+            "--no-zygote",
+            "--window-size=1920,1080",
+          ],
+        },
+      });
 
       clients[sessionId] = client;
 
+      // === QR Code Event ===
       client.on("qr", async (qr) => {
         const qrData = await qrcode.toDataURL(qr);
         console.log(`📱 QR Code dikirim untuk ${sessionId}`);
         socket.emit("qr", { id: sessionId, src: qrData });
       });
 
+      // === Ready Event ===
       client.on("ready", () => {
         console.log(`✅ WhatsApp ${sessionId} siap digunakan`);
         socket.emit("ready", sessionId);
       });
 
+      // === Disconnect Event ===
       client.on("disconnected", () => {
         console.log(`⚠️ WhatsApp ${sessionId} terputus`);
         socket.emit("disconnected", sessionId);
@@ -153,10 +152,10 @@ const client = new Client({
 
 // ==== Root route ====
 app.get("/", (req, res) => {
-  res.json({ status: "ok", message: "Moggumung WA Server v5 aktif" });
+  res.json({ status: "ok", message: "Moggumung WA Server v6 aktif" });
 });
 
-// ==== Start Server setelah Chromium preload ====
+// ==== Start server ====
 (async () => {
   try {
     await detectChromiumPath();
